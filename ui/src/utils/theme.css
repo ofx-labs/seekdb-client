@@ -1,0 +1,283 @@
+/* VS Code主题通用样式类 */
+
+/* 卡片和面板 */
+.vscode-card {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  overflow: hidden;
+}
+
+.vscode-panel {
+  background-color: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 4px;
+}
+
+/* 按钮样式 */
+.vscode-button {
+  padding: 0.4rem 0.8rem;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+}
+
+.vscode-button.primary {
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.vscode-button.primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.vscode-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+}
+
+.vscode-button.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+.vscode-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 输入框样式 */
+.vscode-input {
+  padding: 6px 10px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 2px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 14px;
+  transition: border 0.1s ease;
+}
+
+.vscode-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.vscode-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8a8a8a);
+}
+
+/* 标题样式 */
+.vscode-heading {
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  font-weight: 400;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+/* 分割线 */
+.vscode-divider {
+  height: 1px;
+  background-color: var(--vscode-panel-border, #3c3c3c);
+  border: none;
+  margin: 16px 0;
+}
+
+/* 链接样式 */
+.vscode-link {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: none;
+}
+
+.vscode-link:hover {
+  text-decoration: underline;
+  color: var(--vscode-textLink-activeForeground, #3794ff);
+}
+
+/* 标签和徽章 */
+.vscode-badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  font-size: 75%;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 10px;
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+}
+
+/* 列表项 */
+.vscode-list-item {
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.vscode-list-item:hover {
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.vscode-list-item.active {
+  background-color: var(--vscode-list-activeSelectionBackground, #094771);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+/* 复选框 */
+.vscode-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--vscode-checkbox-border, #6b6b6b);
+  background-color: var(--vscode-checkbox-background, #3c3c3c);
+  cursor: pointer;
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.vscode-checkbox.checked {
+  background-color: var(--vscode-checkbox-selectBackground, #0e639c);
+  border-color: var(--vscode-checkbox-selectBorder, #0e639c);
+}
+
+.vscode-checkbox.checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 3px;
+  height: 8px;
+  border: solid var(--vscode-checkbox-foreground, #ffffff);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* 表格 */
+.vscode-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vscode-table th,
+.vscode-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.vscode-table th {
+  font-weight: 500;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.vscode-table tr:hover {
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+/* 通知提示 */
+.vscode-notification {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vscode-notification.info {
+  background-color: rgba(56, 148, 214, 0.1);
+  border: 1px solid var(--vscode-focusBorder, #007fd4);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.vscode-notification.success {
+  background-color: rgba(0, 128, 0, 0.1);
+  border: 1px solid var(--vscode-terminal-ansiGreen, #6a9955);
+  color: var(--vscode-terminal-ansiGreen, #6a9955);
+}
+
+.vscode-notification.warning {
+  background-color: rgba(255, 188, 0, 0.1);
+  border: 1px solid #cca700;
+  color: #e9a700;
+}
+
+.vscode-notification.error {
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+/* 模态框 */
+.vscode-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.vscode-modal-content {
+  background-color: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-width: 80%;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.vscode-modal-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vscode-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.vscode-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  font-size: 16px;
+}
+
+.vscode-modal-close:hover {
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.vscode-modal-body {
+  padding: 16px;
+}
+
+.vscode-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

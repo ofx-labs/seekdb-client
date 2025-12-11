@@ -1,0 +1,439 @@
+:root {
+  --bg-color: var(--vscode-editor-background, #1e1e1e);
+  --text-color: var(--vscode-foreground, #cccccc);
+  --header-bg: var(--vscode-sideBar-background, #252526);
+  --border-color: var(--vscode-panel-border, #3c3c3c);
+  --input-bg: var(--vscode-input-background, #3c3c3c);
+  --input-text: var(--vscode-input-foreground, #cccccc);
+  --input-border: var(--vscode-input-border, #3c3c3c);
+  --button-bg: var(--vscode-button-background, #0078d4);
+  --button-hover: var(--vscode-button-hoverBackground, #026ec1);
+  --button-text: var(--vscode-button-foreground, white);
+  --success-color: var(--vscode-terminal-ansiGreen, #28a745);
+  --danger-color: var(--vscode-errorForeground, #dc3545);
+  --info-color: var(--vscode-textLink-foreground, #17a2b8);
+  --hover-bg: var(--vscode-list-hoverBackground, #2a2d2e);
+  --focus-border: var(--vscode-focusBorder, #0078d4);
+  --secondary-bg: var(--vscode-button-secondaryBackground, #3c3c3c);
+  --secondary-fg: var(--vscode-button-secondaryForeground, #cccccc);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(
+    --vscode-font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+  background: var(--bg-color);
+  color: var(--text-color);
+  padding: 24px;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(
+    135deg,
+    var(--vscode-textLink-foreground, #4fc3f7) 0%,
+    var(--button-bg) 100%
+  );
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.header p {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground, #888888);
+  margin-top: 4px;
+}
+
+.form-section {
+  background: var(--header-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row.single {
+  grid-template-columns: 1fr;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group label.required::after {
+  content: " *";
+  color: var(--danger-color);
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  color: var(--input-text);
+  border-radius: 6px;
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--button-bg);
+}
+
+.form-group input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #666666);
+}
+
+.db-type-selector {
+  margin-bottom: 20px;
+}
+
+.db-type-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 12px;
+  display: block;
+}
+
+.db-type-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.db-type-tab {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  border: none;
+}
+
+.db-type-tab:hover {
+  border-color: var(--button-bg);
+}
+
+.db-type-tab.active {
+  background: var(--button-bg);
+  border-color: var(--button-bg);
+  color: white;
+}
+
+.config-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: var(--input-bg);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.config-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.config-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.config-tab.active {
+  background: var(--bg-color);
+  color: var(--button-bg);
+  font-weight: 500;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  transition: 0.2s;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-color);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--button-bg);
+  border-color: var(--button-bg);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+  background-color: white;
+}
+
+.scope-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.scope-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.scope-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.scope-btn.active {
+  background: var(--button-bg);
+  border-color: var(--button-bg);
+  color: white;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--button-bg);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--button-hover);
+}
+
+.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text-color);
+}
+
+.btn-secondary:hover {
+  background: var(--hover-bg);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.port-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.port-control input {
+  flex: 1;
+  text-align: center;
+}
+
+.port-btn {
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.port-btn:hover {
+  background: var(--hover-bg);
+}
+
+.message-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.message-toast.success {
+  background: var(--success-color);
+  color: white;
+}
+.message-toast.error {
+  background: var(--danger-color);
+  color: white;
+}
+.message-toast.info {
+  background: var(--button-bg);
+  color: white;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--button-bg);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

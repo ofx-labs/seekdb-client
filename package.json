@@ -1,0 +1,141 @@
+{
+  "name": "seekdb-client",
+  "displayName": "seekdb-client",
+  "description": "seekdb-client is an extension toolkit built _for personal developers_, delivering powerful database management and development workflows. Deeply integrated with the **SeekDB** database system—and fully compatible with **MySQL**—it unifies database operations under one intuitive interface.",
+  "publisher": "alfredlau",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ofx-labs/seekdb-client"
+  },
+  "version": "0.0.3",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "media/logo.png",
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "seekdb-client",
+      "properties": {
+        "seekdb.database.defaultHost": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "数据库默认主机地址"
+        },
+        "seekdb.database.defaultPort": {
+          "type": "number",
+          "default": 2881,
+          "description": "数据库默认端口号"
+        },
+        "seekdb.database.defaultTenant": {
+          "type": "string",
+          "default": "sys",
+          "description": "数据库默认租户"
+        },
+        "seekdb.database.defaultDatabase": {
+          "type": "string",
+          "default": "test",
+          "description": "数据库默认数据库名"
+        },
+        "seekdb.database.defaultUser": {
+          "type": "string",
+          "default": "root",
+          "description": "数据库默认用户名"
+        },
+        "seekdb.database.embedding.type": {
+          "type": "string",
+          "enum": [
+            "builtin",
+            "openai"
+          ],
+          "default": "builtin",
+          "description": "向量化模型类型：builtin（内置模型）或 openai（OpenAI API）"
+        },
+        "seekdb.database.embedding.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key（仅在使用 OpenAI 向量化时需要）"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "seekdb.openDatabase",
+        "title": "数据库管理",
+        "icon": "$(database)",
+        "category": "SeekDB"
+      },
+      {
+        "command": "seekdb.openCollectionBrowser",
+        "title": "打开Collection浏览器",
+        "category": "SeekDB"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "seekdb.openDatabase",
+          "when": "view == seekdb.webviewProvider",
+          "group": "navigation@3.5"
+        }
+      ]
+    },
+    "views": {
+      "seekdb": [
+        {
+          "id": "seekdb.webviewProvider",
+          "name": "SeekDB",
+          "type": "webview"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "seekdb",
+          "title": "SeekDB",
+          "icon": "media/dep.png"
+        }
+      ]
+    },
+    "keybindings": []
+  },
+  "scripts": {
+    "install:all": "npm install && cd ui && npm install",
+    "webview:dev": "cd ui && npm run start",
+    "webview:watch": "cd ui && npm run watch",
+    "webview:build": "cd ui && npm run build",
+    "vscode:prepublish": "npm run compile",
+    "vscode:package": "npx vsce package",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "dev": "npm run webview:build && npm run compile && code --extensionDevelopmentPath=$PWD ./"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/mocha": "^10.0.10",
+    "@types/mysql": "^2.15.27",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.19.0",
+    "typescript": "^5.7.3",
+    "undici-types": "^7.10.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "fs-extra": "^11.3.0",
+    "mysql2": "^3.15.3",
+    "seekdb": "0.1.0-alpha.1"
+  }
+}

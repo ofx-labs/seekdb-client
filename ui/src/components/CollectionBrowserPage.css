@@ -1,0 +1,404 @@
+:root {
+  --bg-color: var(--vscode-editor-background, #1e1e1e);
+  --sidebar-bg: var(--vscode-sideBar-background, #252526);
+  --text-color: var(--vscode-foreground, #cccccc);
+  --text-muted: var(--vscode-descriptionForeground, #888888);
+  --border-color: var(--vscode-panel-border, #3c3c3c);
+  --hover-bg: var(--vscode-list-hoverBackground, #2a2d2e);
+  --selected-bg: var(--vscode-list-activeSelectionBackground, #094771);
+  --header-bg: var(--vscode-editorGroupHeader-tabsBackground, #323233);
+  --button-bg: var(--vscode-button-background, #0078d4);
+  --button-hover: var(--vscode-button-hoverBackground, #026ec1);
+  --success-color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+  --warning-color: var(--vscode-editorWarning-foreground, #dcdcaa);
+  --type-color: var(--vscode-symbolIcon-typeParameterForeground, #569cd6);
+  --input-bg: var(--vscode-input-background, #3c3c3c);
+  --input-border: var(--vscode-input-border, #3c3c3c);
+  --input-fg: var(--vscode-input-foreground, #cccccc);
+  --danger-color: var(--vscode-errorForeground, #dc3545);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(
+    --vscode-font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+  background: var(--bg-color);
+  color: var(--text-color);
+  height: 100vh;
+  overflow: hidden;
+  padding: 0;
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+/* 左侧边栏 - 数据库结构树 */
+.sidebar {
+  width: 280px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sidebar-header .icon {
+  font-size: 16px;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.sidebar-actions button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.sidebar-actions button:hover {
+  background: var(--hover-bg);
+}
+
+.tree-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.tree-item:hover {
+  background: var(--hover-bg);
+}
+
+.tree-item.selected {
+  background: var(--selected-bg);
+}
+
+.tree-item .expand-icon {
+  width: 16px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.tree-item .item-icon {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.tree-item .item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-item.level-1 {
+  padding-left: 24px;
+}
+.tree-item.level-2 {
+  padding-left: 40px;
+}
+.tree-item.level-3 {
+  padding-left: 56px;
+}
+
+.tree-group-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.tree-group-count {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 右侧主区域 */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 查询编辑器 */
+.query-editor {
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px;
+}
+
+.query-input {
+  width: 100%;
+  min-height: 80px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  padding: 12px;
+  font-family: "SF Mono", Monaco, Menlo, Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.query-input:focus {
+  outline: none;
+  border-color: var(--button-bg);
+}
+
+.query-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.query-actions .btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-primary {
+  background: var(--button-bg);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--button-hover);
+}
+
+.btn-secondary {
+  background: var(--header-bg);
+  color: var(--text-color);
+}
+
+.btn-secondary:hover {
+  background: var(--hover-bg);
+}
+
+/* 结果区域 */
+.result-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.result-header .search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.result-header .search-box input {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 12px;
+  width: 150px;
+}
+
+.result-header .search-box input:focus {
+  outline: none;
+}
+
+.result-header .actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.result-header .actions button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.result-header .actions button:hover {
+  background: var(--hover-bg);
+}
+
+/* 数据表格 */
+.table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.data-table th .column-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.data-table th .column-name {
+  color: var(--warning-color);
+}
+
+.data-table th .column-type {
+  font-size: 11px;
+  color: var(--type-color);
+  font-weight: normal;
+}
+
+.data-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.data-table tr:hover {
+  background: var(--hover-bg);
+}
+
+.data-table .row-number {
+  color: var(--text-muted);
+  width: 50px;
+  text-align: right;
+  padding-right: 16px;
+  background: var(--sidebar-bg);
+  position: sticky;
+  left: 0;
+}
+
+/* 状态栏 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--header-bg);
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-muted);
+  gap: 16px;
+}
+
+.status-bar .status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 空状态 */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.empty-state .icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--button-bg);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

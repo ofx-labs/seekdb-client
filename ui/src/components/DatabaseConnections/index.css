@@ -1,0 +1,463 @@
+.db-connections-container {
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  background: var(--vscode-sideBar-background, #252526);
+  color: var(--vscode-foreground, #cccccc);
+  height: 100%;
+}
+
+.db-connections-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.db-connections-header h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  color: var(--vscode-sideBarSectionHeader-foreground, #bbbbbb);
+}
+
+.db-create-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.db-create-btn:hover {
+  background: var(--vscode-list-hoverBackground, #2a2a2a);
+}
+
+/* 空状态 */
+.db-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--vscode-descriptionForeground, #888888);
+}
+
+.db-empty-state p {
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.db-create-connection-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, white);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.db-create-connection-btn:hover {
+  background: var(--vscode-button-hoverBackground, #026ec1);
+}
+
+.db-hint {
+  font-size: 12px;
+  margin-top: 16px;
+}
+
+.db-hint a {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: none;
+}
+
+.db-hint a:hover {
+  text-decoration: underline;
+}
+
+/* 连接列表 */
+.db-connections-list {
+  padding: 8px 0;
+}
+
+/* 分组 */
+.db-group {
+  margin-bottom: 4px;
+}
+
+.db-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--vscode-sideBarSectionHeader-foreground, #bbbbbb);
+}
+
+.db-group-header:hover {
+  background: var(--vscode-list-hoverBackground, #2a2a2a);
+}
+
+.db-group-icon {
+  font-size: 10px;
+  width: 12px;
+}
+
+.db-group-content {
+  padding: 4px 0;
+}
+
+/* 连接项 */
+.db-connection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 28px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.db-connection-item:hover {
+  background: var(--vscode-list-hoverBackground, #2a2a2a);
+}
+
+.db-connection-item.connected {
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.db-connection-item.connected:hover {
+  background: rgba(40, 167, 69, 0.15);
+}
+
+.db-connection-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.db-connection-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.db-connection-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground, #cccccc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-connection-details {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-connection-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #888888;
+}
+
+.status-dot.connected {
+  background: #28a745;
+  box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+}
+
+.db-connection-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.db-connection-item:hover .db-connection-actions {
+  opacity: 1;
+}
+
+.db-action-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.db-action-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, #3c3c3c);
+}
+
+.db-action-btn.connect {
+  color: #28a745;
+}
+
+.db-action-btn.view {
+  color: #0078d4;
+}
+
+.db-action-btn.delete {
+  color: #dc3545;
+}
+
+.db-action-btn.refresh {
+  color: #17a2b8;
+}
+
+.db-action-btn.create {
+  color: #28a745;
+}
+
+/* 头部操作区 */
+.db-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.db-warnings-btn {
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  color: #ffc107;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.db-warnings-btn:hover,
+.db-warnings-btn.active {
+  background: rgba(255, 193, 7, 0.3);
+}
+
+/* 警告面板 */
+.db-warnings-panel {
+  background: var(--vscode-editorWidget-background, #252526);
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.db-warnings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--vscode-sideBarSectionHeader-background, #333);
+}
+
+.db-clear-warnings-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.db-warnings-list {
+  padding: 4px 0;
+}
+
+.db-warning-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+}
+
+.db-warning-item.warning {
+  border-left-color: #ffc107;
+  background: rgba(255, 193, 7, 0.05);
+}
+
+.db-warning-item.error {
+  border-left-color: #dc3545;
+  background: rgba(220, 53, 69, 0.05);
+}
+
+.db-warning-item.info {
+  border-left-color: #17a2b8;
+  background: rgba(23, 162, 184, 0.05);
+}
+
+.db-warning-icon {
+  flex-shrink: 0;
+}
+
+.db-warning-message {
+  flex: 1;
+  word-break: break-word;
+}
+
+.db-warning-time {
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 10px;
+}
+
+/* 连接包装器 */
+.db-connection-wrapper {
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.db-connection-wrapper:last-child {
+  border-bottom: none;
+}
+
+/* 展开图标 */
+.db-expand-icon {
+  font-size: 10px;
+  width: 16px;
+  color: var(--vscode-descriptionForeground, #888);
+  flex-shrink: 0;
+}
+
+/* 租户标签 */
+.db-tenant-badge {
+  margin-left: 4px;
+  padding: 1px 4px;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #fff);
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+/* 数据库列表 */
+.db-databases-list {
+  background: var(--vscode-editor-background, #1e1e1e);
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.db-databases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px 6px 40px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888);
+  text-transform: uppercase;
+}
+
+.db-database-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 4px 48px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.db-database-item:hover {
+  background: var(--vscode-list-hoverBackground, #2a2a2a);
+}
+
+.db-database-item.selected {
+  background: var(--vscode-list-activeSelectionBackground, #094771);
+  color: var(--vscode-list-activeSelectionForeground, #fff);
+}
+
+.db-database-icon {
+  font-size: 14px;
+}
+
+.db-database-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-database-info {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.db-database-item .db-action-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.db-database-item:hover .db-action-btn {
+  opacity: 1;
+}
+
+/* 空数据库状态 */
+.db-empty-databases {
+  text-align: center;
+  padding: 16px;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.db-empty-databases p {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.db-create-db-btn {
+  padding: 4px 12px;
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #fff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.db-create-db-btn:hover {
+  background: var(--vscode-button-hoverBackground, #026ec1);
+}
+
+/* 加载状态 */
+.db-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 12px;
+}
+
+.db-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-panel-border, #3c3c3c);
+  border-top-color: var(--vscode-button-background, #0078d4);
+  border-radius: 50%;
+  animation: db-spin 0.8s linear infinite;
+}
+
+@keyframes db-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

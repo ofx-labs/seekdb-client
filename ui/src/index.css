@@ -1,0 +1,117 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+/* 默认VS Code主题变量 */
+:root {
+  /* 基础颜色 */
+  --vscode-editor-background: #1e1e1e;
+  --vscode-editor-foreground: #d4d4d4;
+  --vscode-editorWidget-background: #252526;
+  --vscode-foreground: #cccccc;
+  --vscode-descriptionForeground: #8a8a8a;
+  --vscode-disabledForeground: #6c6c6c;
+
+  /* 边框和面板 */
+  --vscode-panel-border: #3c3c3c;
+  --vscode-input-border: #3c3c3c;
+  --vscode-focusBorder: #007fd4;
+
+  /* 按钮样式 */
+  --vscode-button-background: #0e639c;
+  --vscode-button-foreground: #ffffff;
+  --vscode-button-hoverBackground: #1177bb;
+  --vscode-button-secondaryBackground: #3a3d41;
+  --vscode-button-secondaryForeground: #ffffff;
+  --vscode-button-secondaryHoverBackground: #45494e;
+  --vscode-button-border: #3c3c3c;
+
+  /* 输入框样式 */
+  --vscode-input-background: #3c3c3c;
+  --vscode-input-foreground: #cccccc;
+  --vscode-input-placeholderForeground: #8a8a8a;
+
+  /* 列表样式 */
+  --vscode-list-hoverBackground: #2a2d2e;
+  --vscode-list-activeSelectionBackground: #094771;
+  --vscode-list-activeSelectionForeground: #ffffff;
+  --vscode-list-inactiveSelectionBackground: #37373d;
+
+  /* 链接样式 */
+  --vscode-textLink-foreground: #3794ff;
+  --vscode-textLink-activeForeground: #3794ff;
+
+  /* 复选框样式 */
+  --vscode-checkbox-background: #3c3c3c;
+  --vscode-checkbox-border: #6b6b6b;
+  --vscode-checkbox-selectBackground: #0e639c;
+  --vscode-checkbox-selectBorder: #0e639c;
+  --vscode-checkbox-foreground: #ffffff;
+
+  /* 标题栏和状态栏 */
+  --vscode-titleBar-activeForeground: #ffffff;
+  --vscode-statusBarItem-prominentBackground: #1890ff;
+  --vscode-statusBarItem-prominentForeground: #ffffff;
+
+  /* 错误和警告 */
+  --vscode-errorForeground: #f48771;
+
+  /* ANSI颜色（终端和日志） */
+  --vscode-terminal-ansiGreen: #6a9955;
+}
+
+/* 当文档根元素有这个类时应用深色主题 */
+html.vscode-dark-theme {
+  /* 基础变量保持不变，因为我们已经默认使用深色风格 */
+}
+
+/* 当文档根元素没有这个类时，可以选择性地应用浅色主题 */
+html:not(.vscode-dark-theme) {
+  /* 可以在这里定义浅色主题变量，目前项目保持深色风格 */
+}
+
+/* 确保所有按钮都遵循VS Code的样式 */
+button {
+  font-family: inherit;
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(
+    --vscode-scrollbarSlider-background,
+    rgba(100, 100, 100, 0.2)
+  );
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(
+    --vscode-scrollbarSlider-hoverBackground,
+    rgba(100, 100, 100, 0.5)
+  );
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --vscode-scrollbarSlider-activeBackground,
+    rgba(100, 100, 100, 0.7)
+  );
+}
