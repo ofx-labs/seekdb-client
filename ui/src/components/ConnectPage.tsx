@@ -133,378 +133,388 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   const showTenant = currentDbType === "seekdb" || currentDbType === "nero";
 
   return (
-    <div className="container">
-      <div className="header">
-        <div className="header-icon">🗄️</div>
-        <div>
-          <h1>Connect to Server</h1>
-          <p>连接到 seekdb、Nero 或其他数据库服务器</p>
-        </div>
-      </div>
-
-      <div className="form-section">
-        <div className="form-row">
-          <div className="form-group">
-            <label>Name</label>
-            <input
-              type="text"
-              id="connectionName"
-              placeholder="Connection Name"
-              value={formData.connectionName}
-              onChange={(e) =>
-                handleInputChange("connectionName", e.target.value)
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label>Group</label>
-            <input
-              type="text"
-              id="group"
-              placeholder="Parent/Sub"
-              value={formData.group}
-              onChange={(e) => handleInputChange("group", e.target.value)}
-            />
+    <div className="connect-page">
+      <div className="container">
+        <div className="header">
+          <div className="header-icon">🗄️</div>
+          <div>
+            <h1>Connect to Server</h1>
+            <p>连接到 seekdb、Nero 或其他数据库服务器</p>
           </div>
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div className="scope-buttons">
-            <button
-              className={`scope-btn ${
-                currentScope === "advance" ? "active" : ""
-              }`}
-              onClick={() => setCurrentScope("advance")}
-            >
-              Advance
-            </button>
-            <button
-              className={`scope-btn ${
-                currentScope === "scope" ? "active" : ""
-              }`}
-              onClick={() => setCurrentScope("scope")}
-            >
-              Scope
-            </button>
-            <button
-              className={`scope-btn ${
-                currentScope === "global" ? "active" : ""
-              }`}
-              onClick={() => setCurrentScope("global")}
-            >
-              Global
-            </button>
-            <button
-              className={`scope-btn ${
-                currentScope === "workspace" ? "active" : ""
-              }`}
-              onClick={() => setCurrentScope("workspace")}
-            >
-              Workspace
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div className="db-type-selector">
-        <span className="db-type-label">Server Type</span>
-        <div className="db-type-tabs">
-          {dbTypes.map(({ type, label, icon }) => (
-            <button
-              key={type}
-              className={`db-type-tab ${
-                currentDbType === type ? "active" : ""
-              }`}
-              onClick={() => setCurrentDbType(type)}
-            >
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="config-tabs">
-        <button
-          className={`config-tab ${
-            currentConfigTab === "main" ? "active" : ""
-          }`}
-          onClick={() => setCurrentConfigTab("main")}
-        >
-          ⚙️ Main
-        </button>
-        <button
-          className={`config-tab ${currentConfigTab === "ssh" ? "active" : ""}`}
-          onClick={() => setCurrentConfigTab("ssh")}
-        >
-          🔐 SSH
-        </button>
-        <button
-          className={`config-tab ${
-            currentConfigTab === "socks" ? "active" : ""
-          }`}
-          onClick={() => setCurrentConfigTab("socks")}
-        >
-          🧦 Socks Proxy
-        </button>
-        <button
-          className={`config-tab ${
-            currentConfigTab === "http" ? "active" : ""
-          }`}
-          onClick={() => setCurrentConfigTab("http")}
-        >
-          🌐 HTTP Proxy
-        </button>
-      </div>
-
-      {currentConfigTab === "main" && (
-        <div id="mainConfig" className="form-section">
+        <div className="form-section">
           <div className="form-row">
             <div className="form-group">
-              <label className="required">Host</label>
+              <label>Name</label>
               <input
                 type="text"
-                id="host"
-                placeholder="127.0.0.1"
-                value={formData.host}
-                onChange={(e) => handleInputChange("host", e.target.value)}
+                id="connectionName"
+                placeholder="Connection Name"
+                value={formData.connectionName}
+                onChange={(e) =>
+                  handleInputChange("connectionName", e.target.value)
+                }
               />
             </div>
             <div className="form-group">
-              <label className="required">Port</label>
-              <div className="port-control">
-                <button
-                  className="port-btn"
-                  onClick={() => handlePortChange(-1)}
-                >
-                  −
-                </button>
+              <label>Group</label>
+              <input
+                type="text"
+                id="group"
+                placeholder="Parent/Sub"
+                value={formData.group}
+                onChange={(e) => handleInputChange("group", e.target.value)}
+              />
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div className="scope-buttons">
+              <button
+                className={`scope-btn ${
+                  currentScope === "advance" ? "active" : ""
+                }`}
+                onClick={() => setCurrentScope("advance")}
+              >
+                Advance
+              </button>
+              <button
+                className={`scope-btn ${
+                  currentScope === "scope" ? "active" : ""
+                }`}
+                onClick={() => setCurrentScope("scope")}
+              >
+                Scope
+              </button>
+              <button
+                className={`scope-btn ${
+                  currentScope === "global" ? "active" : ""
+                }`}
+                onClick={() => setCurrentScope("global")}
+              >
+                Global
+              </button>
+              <button
+                className={`scope-btn ${
+                  currentScope === "workspace" ? "active" : ""
+                }`}
+                onClick={() => setCurrentScope("workspace")}
+              >
+                Workspace
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="db-type-selector">
+          <span className="db-type-label">Server Type</span>
+          <div className="db-type-tabs">
+            {dbTypes.map(({ type, label, icon }) => (
+              <button
+                key={type}
+                className={`db-type-tab ${
+                  currentDbType === type ? "active" : ""
+                }`}
+                onClick={() => setCurrentDbType(type)}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="config-tabs">
+          <button
+            className={`config-tab ${
+              currentConfigTab === "main" ? "active" : ""
+            }`}
+            onClick={() => setCurrentConfigTab("main")}
+          >
+            ⚙️ Main
+          </button>
+          <button
+            className={`config-tab ${
+              currentConfigTab === "ssh" ? "active" : ""
+            }`}
+            onClick={() => setCurrentConfigTab("ssh")}
+          >
+            🔐 SSH
+          </button>
+          <button
+            className={`config-tab ${
+              currentConfigTab === "socks" ? "active" : ""
+            }`}
+            onClick={() => setCurrentConfigTab("socks")}
+          >
+            🧦 Socks Proxy
+          </button>
+          <button
+            className={`config-tab ${
+              currentConfigTab === "http" ? "active" : ""
+            }`}
+            onClick={() => setCurrentConfigTab("http")}
+          >
+            🌐 HTTP Proxy
+          </button>
+        </div>
+
+        {currentConfigTab === "main" && (
+          <div id="mainConfig" className="form-section">
+            <div className="form-row">
+              <div className="form-group">
+                <label className="required">Host</label>
+                <input
+                  type="text"
+                  id="host"
+                  placeholder="127.0.0.1"
+                  value={formData.host}
+                  onChange={(e) => handleInputChange("host", e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="required">Port</label>
+                <div className="port-control">
+                  <button
+                    className="port-btn"
+                    onClick={() => handlePortChange(-1)}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    id="port"
+                    placeholder="2881"
+                    value={formData.port}
+                    onChange={(e) =>
+                      handleInputChange("port", parseInt(e.target.value) || 0)
+                    }
+                  />
+                  <button
+                    className="port-btn"
+                    onClick={() => handlePortChange(1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="required">Username</label>
+                <input
+                  type="text"
+                  id="user"
+                  placeholder="root"
+                  value={formData.user}
+                  onChange={(e) => handleInputChange("user", e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="required">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
+                />
+              </div>
+            </div>
+
+            {showTenant && (
+              <div className="form-row" id="tenantRow">
+                <div className="form-group">
+                  <label>Tenant</label>
+                  <input
+                    type="text"
+                    id="tenant"
+                    placeholder="sys"
+                    value={formData.tenant}
+                    onChange={(e) =>
+                      handleInputChange("tenant", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Database</label>
+                  <input
+                    type="text"
+                    id="database"
+                    placeholder="Database"
+                    value={formData.database}
+                    onChange={(e) =>
+                      handleInputChange("database", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="toggle-row">
+              <div className="toggle-item">
+                <label>Use Connection String</label>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="useConnectionString"
+                    checked={formData.useConnectionString}
+                    onChange={(e) =>
+                      handleInputChange("useConnectionString", e.target.checked)
+                    }
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+              <div className="toggle-item">
+                <label>SSL</label>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="ssl"
+                    checked={formData.ssl}
+                    onChange={(e) => handleInputChange("ssl", e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentConfigTab === "ssh" && (
+          <div id="sshConfig" className="form-section">
+            <div className="form-row">
+              <div className="form-group">
+                <label>SSH Host</label>
+                <input
+                  type="text"
+                  id="sshHost"
+                  placeholder="SSH 主机地址"
+                  value={formData.sshHost}
+                  onChange={(e) => handleInputChange("sshHost", e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>SSH Port</label>
                 <input
                   type="number"
-                  id="port"
-                  placeholder="2881"
-                  value={formData.port}
+                  id="sshPort"
+                  placeholder="22"
+                  value={formData.sshPort}
                   onChange={(e) =>
-                    handleInputChange("port", parseInt(e.target.value) || 0)
+                    handleInputChange("sshPort", parseInt(e.target.value) || 22)
                   }
                 />
-                <button
-                  className="port-btn"
-                  onClick={() => handlePortChange(1)}
-                >
-                  +
-                </button>
               </div>
             </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="required">Username</label>
-              <input
-                type="text"
-                id="user"
-                placeholder="root"
-                value={formData.user}
-                onChange={(e) => handleInputChange("user", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="required">Password</label>
-              <input
-                type="password"
-                id="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={(e) => handleInputChange("password", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {showTenant && (
-            <div className="form-row" id="tenantRow">
+            <div className="form-row">
               <div className="form-group">
-                <label>Tenant</label>
+                <label>SSH Username</label>
                 <input
                   type="text"
-                  id="tenant"
-                  placeholder="sys"
-                  value={formData.tenant}
-                  onChange={(e) => handleInputChange("tenant", e.target.value)}
+                  id="sshUser"
+                  placeholder="SSH 用户名"
+                  value={formData.sshUser}
+                  onChange={(e) => handleInputChange("sshUser", e.target.value)}
                 />
               </div>
               <div className="form-group">
-                <label>Database</label>
+                <label>SSH Password / Key</label>
                 <input
-                  type="text"
-                  id="database"
-                  placeholder="Database"
-                  value={formData.database}
+                  type="password"
+                  id="sshPassword"
+                  placeholder="SSH 密码或密钥路径"
+                  value={formData.sshPassword}
                   onChange={(e) =>
-                    handleInputChange("database", e.target.value)
+                    handleInputChange("sshPassword", e.target.value)
                   }
                 />
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <div className="toggle-row">
-            <div className="toggle-item">
-              <label>Use Connection String</label>
-              <label className="toggle-switch">
+        {currentConfigTab === "socks" && (
+          <div id="socksConfig" className="form-section">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Proxy Host</label>
                 <input
-                  type="checkbox"
-                  id="useConnectionString"
-                  checked={formData.useConnectionString}
+                  type="text"
+                  placeholder="代理服务器地址"
+                  value={formData.socksHost}
                   onChange={(e) =>
-                    handleInputChange("useConnectionString", e.target.checked)
+                    handleInputChange("socksHost", e.target.value)
                   }
                 />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-            <div className="toggle-item">
-              <label>SSL</label>
-              <label className="toggle-switch">
+              </div>
+              <div className="form-group">
+                <label>Proxy Port</label>
                 <input
-                  type="checkbox"
-                  id="ssl"
-                  checked={formData.ssl}
-                  onChange={(e) => handleInputChange("ssl", e.target.checked)}
+                  type="number"
+                  placeholder="1080"
+                  value={formData.socksPort}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "socksPort",
+                      parseInt(e.target.value) || 1080
+                    )
+                  }
                 />
-                <span className="toggle-slider"></span>
-              </label>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {currentConfigTab === "ssh" && (
-        <div id="sshConfig" className="form-section">
-          <div className="form-row">
-            <div className="form-group">
-              <label>SSH Host</label>
-              <input
-                type="text"
-                id="sshHost"
-                placeholder="SSH 主机地址"
-                value={formData.sshHost}
-                onChange={(e) => handleInputChange("sshHost", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>SSH Port</label>
-              <input
-                type="number"
-                id="sshPort"
-                placeholder="22"
-                value={formData.sshPort}
-                onChange={(e) =>
-                  handleInputChange("sshPort", parseInt(e.target.value) || 22)
-                }
-              />
+        {currentConfigTab === "http" && (
+          <div id="httpConfig" className="form-section">
+            <div className="form-row single">
+              <div className="form-group">
+                <label>HTTP Proxy URL</label>
+                <input
+                  type="text"
+                  placeholder="http://proxy:port"
+                  value={formData.httpProxyUrl}
+                  onChange={(e) =>
+                    handleInputChange("httpProxyUrl", e.target.value)
+                  }
+                />
+              </div>
             </div>
           </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>SSH Username</label>
-              <input
-                type="text"
-                id="sshUser"
-                placeholder="SSH 用户名"
-                value={formData.sshUser}
-                onChange={(e) => handleInputChange("sshUser", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>SSH Password / Key</label>
-              <input
-                type="password"
-                id="sshPassword"
-                placeholder="SSH 密码或密钥路径"
-                value={formData.sshPassword}
-                onChange={(e) =>
-                  handleInputChange("sshPassword", e.target.value)
-                }
-              />
-            </div>
-          </div>
-        </div>
-      )}
+        )}
 
-      {currentConfigTab === "socks" && (
-        <div id="socksConfig" className="form-section">
-          <div className="form-row">
-            <div className="form-group">
-              <label>Proxy Host</label>
-              <input
-                type="text"
-                placeholder="代理服务器地址"
-                value={formData.socksHost}
-                onChange={(e) => handleInputChange("socksHost", e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Proxy Port</label>
-              <input
-                type="number"
-                placeholder="1080"
-                value={formData.socksPort}
-                onChange={(e) =>
-                  handleInputChange(
-                    "socksPort",
-                    parseInt(e.target.value) || 1080
-                  )
-                }
-              />
-            </div>
-          </div>
+        <div className="action-buttons">
+          <button className="btn btn-secondary" onClick={handleSave}>
+            💾 Save
+          </button>
+          <button className="btn btn-success" onClick={handleConnect}>
+            ➕ Connect
+          </button>
+          <button className="btn btn-secondary" onClick={handleClose}>
+            ✕ Close
+          </button>
         </div>
-      )}
 
-      {currentConfigTab === "http" && (
-        <div id="httpConfig" className="form-section">
-          <div className="form-row single">
-            <div className="form-group">
-              <label>HTTP Proxy URL</label>
-              <input
-                type="text"
-                placeholder="http://proxy:port"
-                value={formData.httpProxyUrl}
-                onChange={(e) =>
-                  handleInputChange("httpProxyUrl", e.target.value)
-                }
-              />
-            </div>
+        {message && (
+          <div className={`message-toast ${message.type}`}>{message.text}</div>
+        )}
+
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
           </div>
-        </div>
-      )}
-
-      <div className="action-buttons">
-        <button className="btn btn-secondary" onClick={handleSave}>
-          💾 Save
-        </button>
-        <button className="btn btn-success" onClick={handleConnect}>
-          ➕ Connect
-        </button>
-        <button className="btn btn-secondary" onClick={handleClose}>
-          ✕ Close
-        </button>
+        )}
       </div>
-
-      {message && (
-        <div className={`message-toast ${message.type}`}>{message.text}</div>
-      )}
-
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-spinner"></div>
-        </div>
-      )}
     </div>
   );
 };

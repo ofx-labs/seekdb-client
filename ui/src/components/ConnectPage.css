@@ -24,7 +24,8 @@
   padding: 0;
 }
 
-body {
+/* ConnectPage 专用容器样式 */
+.connect-page {
   font-family: var(
     --vscode-font-family,
     -apple-system,
@@ -41,7 +42,7 @@ body {
   min-height: 100vh;
 }
 
-.container {
+.connect-page .container {
   max-width: 900px;
   margin: 0 auto;
 }

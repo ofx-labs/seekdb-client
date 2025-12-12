@@ -90,7 +90,7 @@
     "webview:dev": "cd ui && npm run start",
     "webview:watch": "cd ui && npm run watch",
     "webview:build": "cd ui && npm run build",
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run webview:build && npm run compile",
     "vscode:package": "npx vsce package",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
