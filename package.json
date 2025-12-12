@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/ofx-labs/seekdb-client"
   },
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -16,49 +16,19 @@
   ],
   "icon": "media/logo.png",
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "configuration": {
       "title": "seekdb-client",
       "properties": {
-        "seekdb.database.defaultHost": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "description": "数据库默认主机地址"
-        },
-        "seekdb.database.defaultPort": {
-          "type": "number",
-          "default": 2881,
-          "description": "数据库默认端口号"
-        },
-        "seekdb.database.defaultTenant": {
-          "type": "string",
-          "default": "sys",
-          "description": "数据库默认租户"
-        },
-        "seekdb.database.defaultDatabase": {
-          "type": "string",
-          "default": "test",
-          "description": "数据库默认数据库名"
-        },
-        "seekdb.database.defaultUser": {
-          "type": "string",
-          "default": "root",
-          "description": "数据库默认用户名"
-        },
-        "seekdb.database.embedding.type": {
+        "seekdb.database.embedding.huggingFaceMirror": {
           "type": "string",
           "enum": [
-            "builtin",
-            "openai"
+            "china",
+            "international"
           ],
-          "default": "builtin",
-          "description": "向量化模型类型：builtin（内置模型）或 openai（OpenAI API）"
-        },
-        "seekdb.database.embedding.openaiApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "OpenAI API Key（仅在使用 OpenAI 向量化时需要）"
+          "default": "china",
+          "description": "HuggingFace 镜像地址"
         }
       }
     },
@@ -73,6 +43,12 @@
         "command": "seekdb.openCollectionBrowser",
         "title": "打开Collection浏览器",
         "category": "SeekDB"
+      },
+      {
+        "command": "seekdb.openSettings",
+        "title": "打开设置",
+        "icon": "$(settings-gear)",
+        "category": "SeekDB"
       }
     ],
     "menus": {
@@ -81,6 +57,11 @@
           "command": "seekdb.openDatabase",
           "when": "view == seekdb.webviewProvider",
           "group": "navigation@3.5"
+        },
+        {
+          "command": "seekdb.openSettings",
+          "when": "view == seekdb.webviewProvider",
+          "group": "navigation@3.6"
         }
       ]
     },

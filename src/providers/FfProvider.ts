@@ -477,13 +477,11 @@ export class FfProvider implements vscode.WebviewViewProvider {
     webviewView: vscode.WebviewView
   ): Promise<void> {
     try {
-      // 更新连接中的数据库选择
-      const connections = this.databaseProvider.getConnections();
-      const connection = connections.find((c: any) => c.id === connectionId);
-      if (connection) {
-        connection.database = database;
-        // DatabaseProvider 会在内部处理数据库选择
-      }
+      // 调用 DatabaseProvider 的方法来切换数据库并刷新已打开的 Collection Browser panel
+      await this.databaseProvider.selectDatabaseForConnection(
+        connectionId,
+        database
+      );
 
       // 刷新连接列表
       webviewView.webview.postMessage({

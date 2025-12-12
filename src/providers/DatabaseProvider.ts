@@ -942,6 +942,41 @@ export class DatabaseProvider {
   }
 
   /**
+   * 为连接选择数据库（公共方法，用于从外部切换数据库）
+   * 如果该连接有已打开的 Collection Browser panel，会自动刷新
+   */
+  public async selectDatabaseForConnection(
+    connectionId: string,
+    dbName: string
+  ): Promise<void> {
+    const connection = this.connections.find((c) => c.id === connectionId);
+    if (!connection) {
+      throw new Error(`未找到连接: ${connectionId}`);
+    }
+
+    // 更新连接的数据库
+    const connIndex = this.connections.findIndex((c) => c.id === connectionId);
+    if (connIndex >= 0) {
+      this.connections[connIndex].database = dbName;
+      connection.database = dbName;
+      this.saveConnections();
+
+      // 重新创建客户端
+      if (this.isSeekDBConnection(connection)) {
+        await this.closeSeekDBClients(connection.id);
+        const clients = await this.createSeekDBClients(connection);
+        this.seekdbClients.set(connection.id, clients);
+      }
+
+      // 如果该连接有已打开的 Collection Browser panel，刷新集合列表
+      const existingPanel = this.collectionPanels.get(connectionId);
+      if (existingPanel) {
+        await this.refreshCollections(existingPanel, connection);
+      }
+    }
+  }
+
+  /**
    * 处理创建数据库
    */
   private async handleCreateDatabase(
@@ -1357,7 +1392,7 @@ export class DatabaseProvider {
       query: string;
       collectionName: string;
       limit?: number;
-      embeddingType?: "openai" | "builtin";
+      embeddingType?: "openai" | "builtin" | "ollama" | "anthropic" | "qwen";
       apiKey?: string;
     },
     panel: vscode.WebviewPanel,
@@ -1387,16 +1422,75 @@ export class DatabaseProvider {
       // 创建或获取向量化服务
       let embeddingService = this.embeddingService;
       if (embeddingType && embeddingType !== "builtin") {
-        // 如果指定了外部模型，创建新的服务实例
-        if (embeddingType === "openai" && apiKey) {
-          embeddingService = EmbeddingServiceFactory.create("openai", apiKey);
-        } else {
-          throw new Error(`不支持的向量化类型: ${embeddingType}`);
+        // 如果指定了外部模型，从配置创建服务实例
+        const config = vscode.workspace.getConfiguration(
+          "seekdb.database.embedding"
+        );
+
+        switch (embeddingType) {
+          case "openai": {
+            const openaiApiKey =
+              apiKey || config.get<string>("openaiApiKey", "");
+            const openaiBaseUrl = config.get<string>(
+              "openaiBaseUrl",
+              "https://api.openai.com/v1"
+            );
+            embeddingService = EmbeddingServiceFactory.create("openai", {
+              apiKey: openaiApiKey,
+              baseUrl: openaiBaseUrl,
+            });
+            break;
+          }
+          case "ollama": {
+            const ollamaBaseUrl = config.get<string>(
+              "ollamaBaseUrl",
+              "http://localhost:11434"
+            );
+            const ollamaModel = config.get<string>(
+              "ollamaModel",
+              "nomic-embed-text"
+            );
+            embeddingService = EmbeddingServiceFactory.create("ollama", {
+              ollamaBaseUrl,
+              ollamaModel,
+            });
+            break;
+          }
+          case "anthropic": {
+            const anthropicApiKey =
+              apiKey || config.get<string>("anthropicApiKey", "");
+            const anthropicBaseUrl = config.get<string>(
+              "anthropicBaseUrl",
+              "https://api.anthropic.com"
+            );
+            embeddingService = EmbeddingServiceFactory.create("anthropic", {
+              apiKey: anthropicApiKey,
+              baseUrl: anthropicBaseUrl,
+            });
+            break;
+          }
+          case "qwen": {
+            const qwenApiKey = apiKey || config.get<string>("qwenApiKey", "");
+            const qwenBaseUrl = config.get<string>(
+              "qwenBaseUrl",
+              "https://dashscope.aliyuncs.com"
+            );
+            embeddingService = EmbeddingServiceFactory.create("qwen", {
+              apiKey: qwenApiKey,
+              baseUrl: qwenBaseUrl,
+            });
+            break;
+          }
+          default:
+            throw new Error(`不支持的向量化类型: ${embeddingType}`);
         }
       }
 
       if (!embeddingService) {
-        embeddingService = EmbeddingServiceFactory.create("builtin");
+        // 使用配置中的默认设置创建服务
+        embeddingService = EmbeddingServiceFactory.createFromConfig(
+          vscode.workspace.getConfiguration("seekdb.database")
+        );
       }
 
       // 将查询文本转换为向量（使用缓存）
