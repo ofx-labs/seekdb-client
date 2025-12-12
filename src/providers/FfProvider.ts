@@ -32,88 +32,6 @@ export class FfProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * seoDiagnosis 通过大模型对文件内容进行SEO诊断
-   * @param path 文件路径（可选）
-   */
-  private async seoDiagnosis(path?: string) {
-    console.log("seoDiagnosis", path);
-
-    // 发送诊断开始的进度消息
-    if (this.webviewView) {
-      this.webviewView.webview.postMessage({
-        type: "seoDiagnosisProgress",
-        data: {
-          progress: "🔍 **开始SEO诊断**\n\n正在准备分析环境...",
-        },
-      });
-    }
-
-    if (!path) {
-      // 尝试获取当前活动文件路径
-      path = this.getActiveFilePath();
-
-      if (!path) {
-        // 没有找到活动文件
-        if (this.webviewView) {
-          this.webviewView.webview.postMessage({
-            type: "seoDiagnosisResult",
-            data: {
-              error: "未找到当前打开的文件，请打开一个HTML/JSX/TSX文件后再试",
-              path: null,
-            },
-          });
-        }
-        return;
-      }
-    }
-
-    // 检查文件类型
-    const fileExt = path.toLowerCase().split(".").pop();
-    if (!["html", "jsx", "tsx", "js", "ts"].includes(fileExt || "")) {
-      if (this.webviewView) {
-        this.webviewView.webview.postMessage({
-          type: "seoDiagnosisResult",
-          data: {
-            error: `不支持的文件类型: ${fileExt}，仅支持HTML/JSX/TSX/JS/TS文件`,
-            path,
-          },
-        });
-      }
-      return;
-    }
-
-    // 发送文件加载进度消息
-    if (this.webviewView) {
-      this.webviewView.webview.postMessage({
-        type: "seoDiagnosisProgress",
-        data: {
-          progress: `🔍 **SEO诊断进行中**\n\n正在加载文件: \`${path}\`...`,
-        },
-      });
-    }
-
-    // SEO分析功能已移除
-    if (this.webviewView) {
-      this.webviewView.webview.postMessage({
-        type: "seoDiagnosisResult",
-        data: {
-          error: "SEO分析功能已移除",
-          path,
-        },
-      });
-    }
-  }
-
-  /**
-   * 获取当前活动编辑器的文件路径
-   * @returns 文件路径或undefined
-   */
-  private getActiveFilePath(): string | undefined {
-    const activeEditor = vscode.window.activeTextEditor;
-    return activeEditor ? activeEditor.document.uri.fsPath : undefined;
-  }
-
-  /**
    * setWebviewEventListeners
    */
   public setWebviewEventListeners(webviewView: vscode.WebviewView) {
@@ -240,26 +158,29 @@ export class FfProvider implements vscode.WebviewViewProvider {
    * 获取HTML内容
    */
   getHtmlContent(webviewView: vscode.WebviewView) {
-    // 获取主CSS和JS文件的URI
+    // 获取 assets 目录的 base URI（用于解析相对路径）
+    const assetsUri = webviewView.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "ui", "assets")
+    );
+
+    // 获取主CSS和JS文件的URI（Vite 构建输出到 out/ui/assets）
     const styleUri = webviewView.webview.asWebviewUri(
       vscode.Uri.joinPath(
         this.context.extensionUri,
+        "out",
         "ui",
-        "build",
-        "static",
-        "css",
-        "main.css"
+        "assets",
+        "style.css"
       )
     );
 
     const scriptUri = webviewView.webview.asWebviewUri(
       vscode.Uri.joinPath(
         this.context.extensionUri,
+        "out",
         "ui",
-        "build",
-        "static",
-        "js",
-        "main.js"
+        "assets",
+        "Sidebar.js"
       )
     );
 
@@ -295,6 +216,7 @@ export class FfProvider implements vscode.WebviewViewProvider {
           <title>FF</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <base href="${assetsUri}/">
           <link href="${styleUri}" rel="stylesheet">
           <link href="${codiconsUri}" rel="stylesheet">
           <style>
@@ -316,7 +238,7 @@ export class FfProvider implements vscode.WebviewViewProvider {
             .codicon-trash:before { content: '\\eb9f'; }
             .codicon-folder:before { content: '\\ea83'; }
           </style>
-          <script defer="defer" src="${scriptUri}"></script>
+          <script type="module" src="${scriptUri}"></script>
         </head>
         <body>
           <div id="root"></div>
@@ -353,30 +275,9 @@ export class FfProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * 设置配置项的值
-   * @param configKey 配置项键名（不包含前缀）
-   * @param value 要设置的值
-   * @param isGlobal 是否全局设置
-   */
-  private async updateConfiguration<T>(
-    configKey: string,
-    value: T,
-    isGlobal: boolean = true
-  ): Promise<void> {
-    try {
-      const config = vscode.workspace.getConfiguration("seekdb");
-      await config.update(configKey, value, isGlobal);
-    } catch (error) {
-      console.error(`更新配置项 ${configKey} 失败:`, error);
-      throw error;
-    }
-  }
-
-  /**
    * 打开数据库管理（侧边栏显示实例列表）
    */
   public openDatabase(): void {
-    console.log("openDatabase - 显示数据库实例列表");
     try {
       if (this.webviewView && this.webviewView.webview) {
         // 在侧边栏显示数据库连接列表

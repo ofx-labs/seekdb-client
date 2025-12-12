@@ -4,11 +4,24 @@ import { resolve } from "path";
 
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    jsx: "automatic",
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        ".js": "jsx",
+        ".ts": "ts",
+        ".tsx": "tsx",
+      },
+    },
+  },
   build: {
     outDir: "../out/ui",
     emptyOutDir: true,
     rollupOptions: {
       input: {
+        Sidebar: resolve(__dirname, "src/pages/Sidebar.html"),
         ConnectPage: resolve(__dirname, "src/pages/ConnectPage.html"),
         CollectionBrowserPage: resolve(
           __dirname,
@@ -19,7 +32,7 @@ export default defineConfig({
         // 使用固定文件名（不带 hash），便于 webview 加载
         entryFileNames: "assets/[name].js",
         chunkFileNames: "assets/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash].[ext]",
+        assetFileNames: "assets/[name].[ext]",
       },
     },
     // 不分割 CSS

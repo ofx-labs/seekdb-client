@@ -19,31 +19,59 @@ import {
 import { vscode } from "../../utils/vscode";
 import "./index.css";
 
+interface DatabaseConnection {
+  id: string;
+  name: string;
+  type: string;
+  host: string;
+  port: number;
+}
+
+interface ServerDatabase {
+  name: string;
+  charset: string;
+  collation: string;
+}
+
 const DB_TYPE_ICONS = {
   seekdb: <Search size={16} />,
   nero: <Zap size={16} />,
 };
 
+interface WarningMessage {
+  type: "error" | "info" | "warning";
+  message: string;
+  timestamp: Date;
+}
+
 /**
  * DatabaseConnections - 侧边栏数据库连接列表组件
  */
 function DatabaseConnections() {
-  const [connections, setConnections] = useState([]);
-  const [expandedGroups, setExpandedGroups] = useState({});
+  const [connections, setConnections] = useState<DatabaseConnection[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 每个连接的服务器数据库列表
-  const [serverDatabases, setServerDatabases] = useState({});
+  const [serverDatabases, setServerDatabases] = useState<{
+    [key: string]: ServerDatabase[];
+  }>({});
   // 加载状态
-  const [loadingDatabases, setLoadingDatabases] = useState({});
+  const [loadingDatabases, setLoadingDatabases] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 展开的连接（显示数据库列表）
-  const [expandedConnections, setExpandedConnections] = useState({});
+  const [expandedConnections, setExpandedConnections] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 警告信息
-  const [warnings, setWarnings] = useState([]);
+  const [warnings, setWarnings] = useState<WarningMessage[]>([]);
   // 显示警告面板
   const [showWarnings, setShowWarnings] = useState(false);
 
   useEffect(() => {
     // 监听来自扩展的消息
-    const handleMessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === "updateDatabaseConnections") {
         setConnections(message.data?.connections || []);
@@ -69,7 +97,7 @@ function DatabaseConnections() {
             [connectionId]: false,
           }));
           // 添加警告
-          setWarnings((prev) => [
+          setWarnings((prev: WarningMessage[]) => [
             ...prev,
             {
               type: "error",
