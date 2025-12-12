@@ -22,9 +22,12 @@ import "./index.css";
 interface DatabaseConnection {
   id: string;
   name: string;
-  type: string;
+  type: "seekdb" | "nero" | string;
   host: string;
   port: number;
+  database?: string;
+  tenant?: string;
+  connected?: boolean;
 }
 
 interface ServerDatabase {
@@ -33,7 +36,7 @@ interface ServerDatabase {
   collation: string;
 }
 
-const DB_TYPE_ICONS = {
+const DB_TYPE_ICONS: { [key: string]: React.ReactNode } = {
   seekdb: <Search size={16} />,
   nero: <Zap size={16} />,
 };
@@ -129,35 +132,35 @@ function DatabaseConnections() {
     });
   };
 
-  const handleConnect = (connection) => {
+  const handleConnect = (connection: DatabaseConnection) => {
     vscode.postMessage({
       type: "connectToDatabase",
       data: connection,
     });
   };
 
-  const handleDisconnect = (connectionId) => {
+  const handleDisconnect = (connectionId: string) => {
     vscode.postMessage({
       type: "disconnectDatabase",
       data: { id: connectionId },
     });
   };
 
-  const handleDelete = (connectionId) => {
+  const handleDelete = (connectionId: string) => {
     vscode.postMessage({
       type: "deleteDatabaseConnection",
       data: { id: connectionId },
     });
   };
 
-  const handleViewCollections = (connectionId) => {
+  const handleViewCollections = (connectionId: string) => {
     vscode.postMessage({
       type: "openCollectionBrowser",
       data: { id: connectionId },
     });
   };
 
-  const toggleGroup = (groupName) => {
+  const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
       ...prev,
       [groupName]: !prev[groupName],
@@ -165,7 +168,10 @@ function DatabaseConnections() {
   };
 
   // 切换连接展开状态（显示数据库列表）
-  const toggleConnectionExpand = (connectionId, connection) => {
+  const toggleConnectionExpand = (
+    connectionId: string,
+    connection: DatabaseConnection
+  ) => {
     const isExpanding = !expandedConnections[connectionId];
     setExpandedConnections((prev) => ({
       ...prev,
@@ -179,7 +185,7 @@ function DatabaseConnections() {
   };
 
   // 加载服务器数据库列表
-  const loadServerDatabases = (connectionId) => {
+  const loadServerDatabases = (connectionId: string) => {
     setLoadingDatabases((prev) => ({
       ...prev,
       [connectionId]: true,
@@ -191,7 +197,7 @@ function DatabaseConnections() {
   };
 
   // 选择数据库
-  const handleSelectDatabase = (connectionId, dbName) => {
+  const handleSelectDatabase = (connectionId: string, dbName: string) => {
     vscode.postMessage({
       type: "selectServerDatabase",
       data: { connectionId, database: dbName },
@@ -199,7 +205,7 @@ function DatabaseConnections() {
   };
 
   // 创建数据库
-  const handleCreateServerDatabase = (connectionId) => {
+  const handleCreateServerDatabase = (connectionId: string) => {
     const dbName = prompt("Enter new database name:");
     if (dbName && dbName.trim()) {
       vscode.postMessage({
@@ -210,7 +216,7 @@ function DatabaseConnections() {
   };
 
   // 删除数据库
-  const handleDeleteServerDatabase = (connectionId, dbName) => {
+  const handleDeleteServerDatabase = (connectionId: string, dbName: string) => {
     if (
       confirm(
         `Are you sure you want to delete database "${dbName}"? This action cannot be undone!`
@@ -226,7 +232,10 @@ function DatabaseConnections() {
   };
 
   // 刷新数据库列表
-  const handleRefreshDatabases = (connectionId, e) => {
+  const handleRefreshDatabases = (
+    connectionId: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     loadServerDatabases(connectionId);
   };
@@ -242,7 +251,10 @@ function DatabaseConnections() {
   const disconnectedList = connections.filter((c) => !c.connected);
 
   // 渲染单个连接项
-  const renderConnectionItem = (connection, isConnected) => {
+  const renderConnectionItem = (
+    connection: DatabaseConnection,
+    isConnected: boolean
+  ) => {
     const isExpanded = expandedConnections[connection.id];
     const databases = serverDatabases[connection.id] || [];
     const isLoading = loadingDatabases[connection.id];

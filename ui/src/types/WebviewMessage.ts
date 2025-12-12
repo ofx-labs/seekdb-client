@@ -49,7 +49,19 @@ export interface WebviewMessage {
     | "seoDiagnosis"
     | "seoDiagnosisResult"
     | "seoDiagnosisProgress"
-    | "openSeoAnalyzer";
+    | "openSeoAnalyzer"
+    // Database related messages
+    | "getDatabaseConnections"
+    | "openDatabaseConnect"
+    | "connectToDatabase"
+    | "disconnectDatabase"
+    | "deleteDatabaseConnection"
+    | "openCollectionBrowser"
+    | "getServerDatabases"
+    | "selectServerDatabase"
+    | "createServerDatabase"
+    | "deleteServerDatabase"
+    | "clearWarnings";
   data?: any;
   key?: string;
   value?: any;
