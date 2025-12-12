@@ -3284,14 +3284,9 @@ export class DatabaseProvider {
           <div class="db-type-selector">
             <span class="db-type-label">Server Type</span>
             <div class="db-type-tabs" id="dbTypeTabs">
-              <button class="db-type-tab active" data-type="seekdb">🔍 SeekDB</button>
+              <button class="db-type-tab active" data-type="seekdb">🔍 seekdb</button>
               <button class="db-type-tab" data-type="nero">⚡ Nero</button>
-              <button class="db-type-tab" data-type="mysql">🐬 MySQL</button>
-              <button class="db-type-tab" data-type="mariadb">🦭 MariaDB</button>
-              <button class="db-type-tab" data-type="postgresql">🐘 PostgreSQL</button>
-              <button class="db-type-tab" data-type="sqlite">📦 SQLite</button>
-              <button class="db-type-tab" data-type="oracle">🔶 Oracle</button>
-              <button class="db-type-tab" data-type="duckdb">🦆 DuckDB</button>
+
             </div>
           </div>
           

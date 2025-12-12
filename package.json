@@ -1,7 +1,7 @@
 {
   "name": "seekdb-client",
   "displayName": "seekdb-client",
-  "description": "seekdb-client is an extension toolkit built _for personal developers_, delivering powerful database management and development workflows. Deeply integrated with the **SeekDB** database system—and fully compatible with **MySQL**—it unifies database operations under one intuitive interface.",
+  "description": "seekdb-client is an extension toolkit built _for personal developers_, delivering powerful database management and development workflows. Deeply integrated with the **seekdb** database system—and fully compatible with **MySQL**—it unifies database operations under one intuitive interface.",
   "publisher": "alfredlau",
   "repository": {
     "type": "git",
@@ -37,18 +37,18 @@
         "command": "seekdb.openDatabase",
         "title": "数据库管理",
         "icon": "$(database)",
-        "category": "SeekDB"
+        "category": "seekdb"
       },
       {
         "command": "seekdb.openCollectionBrowser",
         "title": "打开Collection浏览器",
-        "category": "SeekDB"
+        "category": "seekdb"
       },
       {
         "command": "seekdb.openSettings",
         "title": "打开设置",
         "icon": "$(settings-gear)",
-        "category": "SeekDB"
+        "category": "seekdb"
       }
     ],
     "menus": {
@@ -69,7 +69,7 @@
       "seekdb": [
         {
           "id": "seekdb.webviewProvider",
-          "name": "SeekDB",
+          "name": "seekdb",
           "type": "webview"
         }
       ]
@@ -78,7 +78,7 @@
       "activitybar": [
         {
           "id": "seekdb",
-          "title": "SeekDB",
+          "title": "seekdb",
           "icon": "media/dep.png"
         }
       ]
