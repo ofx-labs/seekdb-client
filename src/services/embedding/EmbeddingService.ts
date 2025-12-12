@@ -27,10 +27,16 @@ export interface EmbeddingService {
 export class OpenAIEmbeddingService implements EmbeddingService {
   private apiKey: string;
   private model: string;
+  private baseUrl: string;
 
-  constructor(apiKey: string, model: string = "text-embedding-3-small") {
+  constructor(
+    apiKey: string,
+    model: string = "text-embedding-3-small",
+    baseUrl: string = "https://api.openai.com/v1"
+  ) {
     this.apiKey = apiKey;
     this.model = model;
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
   }
 
   async embed(text: string): Promise<number[]> {
@@ -39,7 +45,8 @@ export class OpenAIEmbeddingService implements EmbeddingService {
     }
 
     try {
-      const response = await fetch("https://api.openai.com/v1/embeddings", {
+      const url = `${this.baseUrl}/embeddings`;
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,12 +81,230 @@ export class OpenAIEmbeddingService implements EmbeddingService {
 }
 
 /**
+ * Ollama 向量化服务（本地模型）
+ */
+export class OllamaEmbeddingService implements EmbeddingService {
+  private baseUrl: string;
+  private model: string;
+
+  constructor(
+    baseUrl: string = "http://localhost:11434",
+    model: string = "nomic-embed-text"
+  ) {
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
+    this.model = model;
+  }
+
+  async embed(text: string): Promise<number[]> {
+    try {
+      const url = `${this.baseUrl}/api/embeddings`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          prompt: text,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Ollama API 错误: ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      if (!data.embedding || !Array.isArray(data.embedding)) {
+        throw new Error("Ollama API 返回格式错误：缺少 embedding 字段");
+      }
+
+      return data.embedding;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Ollama 向量化失败: ${String(error)}`);
+    }
+  }
+
+  getModelName(): string {
+    return `Ollama ${this.model}`;
+  }
+}
+
+/**
+ * Anthropic 向量化服务
+ */
+export class AnthropicEmbeddingService implements EmbeddingService {
+  private apiKey: string;
+  private baseUrl: string;
+
+  constructor(apiKey: string, baseUrl: string = "https://api.anthropic.com") {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
+  }
+
+  async embed(text: string): Promise<number[]> {
+    if (!this.apiKey) {
+      throw new Error("Anthropic API key 未配置");
+    }
+
+    try {
+      // Anthropic 本身不直接提供 embedding API，但可以通过兼容 OpenAI 格式的代理服务使用
+      // 如果 baseUrl 指向兼容 OpenAI 格式的服务（如某些代理服务），则使用 OpenAI 格式
+      // 否则尝试 Anthropic 原生格式（虽然可能不支持）
+      const url = `${this.baseUrl}/v1/embeddings`;
+
+      // 首先尝试 OpenAI 兼容格式（适用于代理服务）
+      let response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "text-embedding-ada-002", // 使用兼容的模型名
+          input: text,
+        }),
+      });
+
+      // 如果失败，尝试使用 Anthropic 格式
+      if (!response.ok && response.status === 404) {
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": this.apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-3-opus-20240229",
+            input: text,
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({ error: { message: response.statusText } }));
+        throw new Error(
+          `Anthropic API 错误: ${error.error?.message || response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      // OpenAI 兼容格式
+      if (data.data && Array.isArray(data.data) && data.data[0]?.embedding) {
+        return data.data[0].embedding;
+      }
+      // Anthropic 格式（如果支持）
+      if (data.embedding && Array.isArray(data.embedding)) {
+        return data.embedding;
+      }
+
+      throw new Error("Anthropic API 返回格式错误：无法解析 embedding");
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Anthropic 向量化失败: ${String(error)}`);
+    }
+  }
+
+  getModelName(): string {
+    return "Anthropic Claude";
+  }
+}
+
+/**
+ * 千问（Qwen）向量化服务
+ */
+export class QwenEmbeddingService implements EmbeddingService {
+  private apiKey: string;
+  private baseUrl: string;
+  private model: string;
+
+  constructor(
+    apiKey: string,
+    baseUrl: string = "https://dashscope.aliyuncs.com",
+    model: string = "text-embedding-v2"
+  ) {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
+    this.model = model;
+  }
+
+  async embed(text: string): Promise<number[]> {
+    if (!this.apiKey) {
+      throw new Error("千问 API key 未配置");
+    }
+
+    try {
+      const url = `${this.baseUrl}/api/v1/services/embeddings/text-embedding/text-embedding`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          input: {
+            texts: [text],
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({ error: { message: response.statusText } }));
+        throw new Error(
+          `千问 API 错误: ${
+            error.error?.message || error.message || response.statusText
+          }`
+        );
+      }
+
+      const data = await response.json();
+      if (
+        data.output &&
+        data.output.embeddings &&
+        Array.isArray(data.output.embeddings) &&
+        data.output.embeddings[0]
+      ) {
+        return data.output.embeddings[0].embedding;
+      }
+      if (data.data && Array.isArray(data.data) && data.data[0]?.embedding) {
+        return data.data[0].embedding;
+      }
+
+      throw new Error("千问 API 返回格式错误：缺少 embedding 字段");
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`千问向量化失败: ${String(error)}`);
+    }
+  }
+
+  getModelName(): string {
+    return `千问 ${this.model}`;
+  }
+}
+
+/**
  * 内置向量化服务（使用本地模型）
  * 使用 @huggingface/transformers 库
  */
 export class BuiltinEmbeddingService implements EmbeddingService {
   private pipeline: any = null;
   private initialized: boolean = false;
+  private mirrorUrl: string;
 
   async embed(text: string): Promise<number[]> {
     if (!this.initialized) {
@@ -111,6 +336,10 @@ export class BuiltinEmbeddingService implements EmbeddingService {
     }
   }
 
+  constructor(mirrorUrl: string = "https://hf-mirror.com") {
+    this.mirrorUrl = mirrorUrl;
+  }
+
   private async initialize(): Promise<void> {
     try {
       // 动态导入 @huggingface/transformers
@@ -131,7 +360,7 @@ export class BuiltinEmbeddingService implements EmbeddingService {
       // 配置 HuggingFace 镜像地址（支持中国用户）
       // Set HuggingFace mirror for Chinese users, matching reference code
       if (env && typeof env === "object") {
-        env.remoteHost = process.env.HF_ENDPOINT || "https://hf-mirror.com";
+        env.remoteHost = this.mirrorUrl;
         console.log(`配置 HuggingFace 镜像地址: ${env.remoteHost}`);
       }
 
@@ -257,23 +486,62 @@ class SimpleEmbeddingPipeline {
 export class EmbeddingServiceFactory {
   /**
    * 创建向量化服务
-   * @param type 服务类型：'openai' | 'builtin'
-   * @param apiKey OpenAI API key（仅当 type 为 'openai' 时需要）
-   * @param model OpenAI 模型名称（可选）
+   * @param type 服务类型
+   * @param options 配置选项
    * @returns 向量化服务实例
    */
   static create(
-    type: "openai" | "builtin",
-    apiKey?: string,
-    model?: string
+    type: "openai" | "builtin" | "ollama" | "anthropic" | "qwen",
+    options?: {
+      apiKey?: string;
+      model?: string;
+      baseUrl?: string;
+      ollamaBaseUrl?: string;
+      ollamaModel?: string;
+      mirrorUrl?: string;
+    }
   ): EmbeddingService {
-    if (type === "openai") {
-      if (!apiKey) {
-        throw new Error("使用 OpenAI 服务需要提供 API key");
-      }
-      return new OpenAIEmbeddingService(apiKey, model);
-    } else {
-      return new BuiltinEmbeddingService();
+    switch (type) {
+      case "openai":
+        if (!options?.apiKey) {
+          throw new Error("使用 OpenAI 服务需要提供 API key");
+        }
+        return new OpenAIEmbeddingService(
+          options.apiKey,
+          options.model || "text-embedding-3-small",
+          options.baseUrl || "https://api.openai.com/v1"
+        );
+
+      case "ollama":
+        return new OllamaEmbeddingService(
+          options?.ollamaBaseUrl || "http://localhost:11434",
+          options?.ollamaModel || "nomic-embed-text"
+        );
+
+      case "anthropic":
+        if (!options?.apiKey) {
+          throw new Error("使用 Anthropic 服务需要提供 API key");
+        }
+        return new AnthropicEmbeddingService(
+          options.apiKey,
+          options.baseUrl || "https://api.anthropic.com"
+        );
+
+      case "qwen":
+        if (!options?.apiKey) {
+          throw new Error("使用千问服务需要提供 API key");
+        }
+        return new QwenEmbeddingService(
+          options.apiKey,
+          options.baseUrl || "https://dashscope.aliyuncs.com",
+          options.model || "text-embedding-v2"
+        );
+
+      case "builtin":
+      default:
+        return new BuiltinEmbeddingService(
+          options?.mirrorUrl || "https://hf-mirror.com"
+        );
     }
   }
 
@@ -287,12 +555,66 @@ export class EmbeddingServiceFactory {
       "database.embedding.type",
       "builtin"
     );
-    const apiKey = config.get<string>("database.embedding.openaiApiKey", "");
 
-    if (embeddingType === "openai") {
-      return this.create("openai", apiKey);
-    } else {
-      return this.create("builtin");
+    // 获取 HuggingFace 镜像配置
+    const mirrorType = config.get<string>(
+      "database.embedding.huggingFaceMirror",
+      "china"
+    );
+    const mirrorUrl =
+      mirrorType === "china"
+        ? "https://hf-mirror.com"
+        : "https://huggingface.co";
+
+    switch (embeddingType) {
+      case "openai": {
+        const apiKey = config.get<string>(
+          "database.embedding.openaiApiKey",
+          ""
+        );
+        const baseUrl = config.get<string>(
+          "database.embedding.openaiBaseUrl",
+          "https://api.openai.com/v1"
+        );
+        return this.create("openai", { apiKey, baseUrl });
+      }
+
+      case "ollama": {
+        const ollamaBaseUrl = config.get<string>(
+          "database.embedding.ollamaBaseUrl",
+          "http://localhost:11434"
+        );
+        const ollamaModel = config.get<string>(
+          "database.embedding.ollamaModel",
+          "nomic-embed-text"
+        );
+        return this.create("ollama", { ollamaBaseUrl, ollamaModel });
+      }
+
+      case "anthropic": {
+        const apiKey = config.get<string>(
+          "database.embedding.anthropicApiKey",
+          ""
+        );
+        const baseUrl = config.get<string>(
+          "database.embedding.anthropicBaseUrl",
+          "https://api.anthropic.com"
+        );
+        return this.create("anthropic", { apiKey, baseUrl });
+      }
+
+      case "qwen": {
+        const apiKey = config.get<string>("database.embedding.qwenApiKey", "");
+        const baseUrl = config.get<string>(
+          "database.embedding.qwenBaseUrl",
+          "https://dashscope.aliyuncs.com"
+        );
+        return this.create("qwen", { apiKey, baseUrl });
+      }
+
+      case "builtin":
+      default:
+        return this.create("builtin", { mirrorUrl });
     }
   }
 }

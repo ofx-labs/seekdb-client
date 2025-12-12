@@ -5,12 +5,6 @@ import "./index.css";
 const DB_TYPE_ICONS = {
   seekdb: "🔍",
   nero: "⚡",
-  mysql: "🐬",
-  mariadb: "🦭",
-  postgresql: "🐘",
-  sqlite: "📦",
-  oracle: "🔶",
-  duckdb: "🦆",
 };
 
 /**

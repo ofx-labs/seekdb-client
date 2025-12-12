@@ -1,8 +1,8 @@
-# SeekDB Client
+# seekdb Client
 
 ## Overview
 
-**SeekDB Client** is a VS Code extension toolkit built _for personal developers_, delivering powerful database management and development workflows. Deeply integrated with the **SeekDB** database system—and fully compatible with **MySQL**—it unifies database operations under one intuitive interface.
+**seekdb Client** is a VS Code extension toolkit built _for personal developers_, delivering powerful database management and development workflows. Deeply integrated with the **seekdb** database system—and fully compatible with **MySQL**—it unifies database operations under one intuitive interface.
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Feature                    | Description                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------------------ |
-| **Multi‑Database Support** | Connect to and manage both **SeekDB** and **MySQL** instances seamlessly.                  |
+| **Multi‑Database Support** | Connect to and manage both **seekdb** and **MySQL** instances seamlessly.                  |
 | **Visual UI**              | Modern React‑based WebView interface with intuitive navigation and actions.                |
 | **Smart Code Completion**  | Hover and jump-to-definition for `getOrCreateCollection()` in your editor.                 |
 | **Vector Search**          | Built‑in AI vectorization enables _semantic similarity search_—no raw embeddings required. |

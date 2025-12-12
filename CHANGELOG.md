@@ -5,7 +5,7 @@
 #### ✨ New
 
 - **Connection Manager**
-  - Create/edit/test SeekDB & MySQL connections
+  - Create/edit/test seekdb & MySQL connections
   - CRUD for connection profiles (add/delete/edit)
 - **Collection Browser**
   - Tree‑based navigation

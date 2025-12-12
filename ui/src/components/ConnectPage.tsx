@@ -17,15 +17,7 @@ interface ConnectPageProps {
   defaultConfig: DefaultConfig;
 }
 
-type DbType =
-  | "seekdb"
-  | "nero"
-  | "mysql"
-  | "mariadb"
-  | "postgresql"
-  | "sqlite"
-  | "oracle"
-  | "duckdb";
+type DbType = "seekdb" | "nero";
 type ConfigTab = "main" | "ssh" | "socks" | "http";
 type Scope = "advance" | "scope" | "global" | "workspace";
 
@@ -134,14 +126,8 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   };
 
   const dbTypes: { type: DbType; label: string; icon: string }[] = [
-    { type: "seekdb", label: "SeekDB", icon: "🔍" },
+    { type: "seekdb", label: "seekdb", icon: "🔍" },
     { type: "nero", label: "Nero", icon: "⚡" },
-    { type: "mysql", label: "MySQL", icon: "🐬" },
-    { type: "mariadb", label: "MariaDB", icon: "🦭" },
-    { type: "postgresql", label: "PostgreSQL", icon: "🐘" },
-    { type: "sqlite", label: "SQLite", icon: "📦" },
-    { type: "oracle", label: "Oracle", icon: "🔶" },
-    { type: "duckdb", label: "DuckDB", icon: "🦆" },
   ];
 
   const showTenant = currentDbType === "seekdb" || currentDbType === "nero";
@@ -152,7 +138,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
         <div className="header-icon">🗄️</div>
         <div>
           <h1>Connect to Server</h1>
-          <p>连接到 SeekDB、Nero 或其他数据库服务器</p>
+          <p>连接到 seekdb、Nero 或其他数据库服务器</p>
         </div>
       </div>
 
