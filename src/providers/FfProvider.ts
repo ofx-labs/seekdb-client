@@ -186,7 +186,7 @@ export class FfProvider implements vscode.WebviewViewProvider {
           }
           break;
 
-        // SeekDB 数据库操作相关消息
+        // seekdb 数据库操作相关消息
         case "getServerDatabases":
           if (message.data?.connectionId) {
             this.handleGetServerDatabases(

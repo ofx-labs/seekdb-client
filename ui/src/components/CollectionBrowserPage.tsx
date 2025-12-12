@@ -1,5 +1,30 @@
 import React, { useState, useEffect } from "react";
+import {
+  Plug,
+  RefreshCw,
+  Plus,
+  Settings,
+  Database,
+  FileText,
+  List,
+  File,
+  ChevronDown,
+  ChevronRight,
+  Play,
+  Save,
+  AlignJustify,
+  Search,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  XCircle,
+  BarChart3,
+  Clock,
+  Sparkles,
+} from "lucide-react";
 import "./CollectionBrowserPage.css";
+
+type EmbeddingType = "builtin" | "openai" | "ollama" | "anthropic" | "qwen";
 
 interface ConnectionInfo {
   name: string;
@@ -46,7 +71,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   );
   const [query, setQuery] = useState<string>(
     isSeekDB
-      ? "-- 选择左侧集合查看数据，或输入 SQL 查询"
+      ? "-- Select a collection on the left to view data, or enter a SQL query"
       : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`"
   );
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
@@ -59,7 +84,17 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [, setRowCount] = useState(0);
   const [executionTime, setExecutionTime] = useState<string>("-");
 
-  // 监听来自扩展的消息
+  // 向量搜索相关状态
+  const [vectorSearchQuery, setVectorSearchQuery] = useState("");
+  const [vectorSearchLimit, setVectorSearchLimit] = useState(10);
+  const [embeddingType, setEmbeddingType] = useState<EmbeddingType>("builtin");
+  const [vectorSearchLoading, setVectorSearchLoading] = useState(false);
+  const [collectionModelName, setCollectionModelName] = useState<string | null>(
+    null
+  );
+  const [searchModelName, setSearchModelName] = useState<string | null>(null);
+
+  // Listen for messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
@@ -75,7 +110,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           break;
         case "queryError":
         case "collectionsError":
-          setError(message.data?.error || "操作失败");
+          setError(message.data?.error || "Operation failed");
           setLoading(false);
           break;
         case "collectionsList":
@@ -83,10 +118,23 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           setLoading(false);
           break;
         case "databasesList":
-          console.log("收到数据库列表:", message.data.databases);
+          console.log("Received database list:", message.data.databases);
           break;
         case "databaseError":
-          console.error("数据库操作错误:", message.data?.error);
+          console.error("Database operation error:", message.data?.error);
+          break;
+        case "vectorSearchResult":
+          setQueryResult(message.data);
+          setVectorSearchLoading(false);
+          setError(null);
+          setRowCount(message.data?.rowCount || 0);
+          setExecutionTime(message.data?.executionTime || "-");
+          setCollectionModelName(message.data?.collectionModelName || null);
+          setSearchModelName(message.data?.searchModelName || null);
+          break;
+        case "vectorSearchError":
+          setError(message.data?.error || "Vector search failed");
+          setVectorSearchLoading(false);
           break;
       }
     };
@@ -95,17 +143,17 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  // 初始化：主动请求集合列表
+  // Initialize: actively request collections list
   useEffect(() => {
     if (isSeekDB) {
-      // SeekDB 连接：主动请求集合列表
+      // seekdb connection: actively request collections list
       setLoading(true);
-      // 延迟一下确保事件监听器已注册
+      // Delay to ensure event listener is registered
       setTimeout(() => {
         vscode.postMessage({ type: "refreshCollections" });
       }, 100);
     } else {
-      // 非 SeekDB 连接：执行初始查询
+      // Non-seekdb connection: execute initial query
       setTimeout(() => {
         handleExecuteQuery();
       }, 200);
@@ -132,9 +180,33 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     setQuery(newQuery);
     setLoading(true);
     setError(null);
+    // 重置模型信息
+    setCollectionModelName(null);
+    setSearchModelName(null);
     vscode.postMessage({
       type: "loadCollectionData",
       data: { collectionName },
+    });
+  };
+
+  // 向量相似度搜索
+  const handleVectorSearch = () => {
+    if (!vectorSearchQuery.trim()) return;
+    if (!selectedCollection) {
+      setError("Please select a collection first");
+      return;
+    }
+
+    setVectorSearchLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "vectorSearch",
+      data: {
+        query: vectorSearchQuery,
+        collectionName: selectedCollection,
+        limit: vectorSearchLimit,
+        embeddingType: embeddingType,
+      },
     });
   };
 
@@ -184,32 +256,40 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   return (
     <div className="collection-browser-page">
       <div className="container">
-        {/* 左侧边栏 */}
+        {/* Left sidebar */}
         <div className="sidebar">
           <div className="sidebar-header">
-            <span className="icon">🔌</span>
+            <Plug size={16} className="icon" />
             <span>
               {connectionInfo.host}:{connectionInfo.port}
             </span>
             <div className="sidebar-actions">
-              <button title="刷新" onClick={handleRefreshCollections}>
-                🔄
+              <button title="Refresh" onClick={handleRefreshCollections}>
+                <RefreshCw size={14} />
               </button>
-              <button title="新建查询">➕</button>
-              <button title="设置">⚙️</button>
+              <button title="New query">
+                <Plus size={14} />
+              </button>
+              <button title="Settings">
+                <Settings size={14} />
+              </button>
             </div>
           </div>
           <div className="tree-container">
-            {/* 数据库节点 */}
+            {/* Database node */}
             <div
               className="tree-item"
               onClick={() => toggleNode("db")}
               style={{ cursor: "pointer" }}
             >
               <span className="expand-icon">
-                {expandedNodes.has("db") ? "▼" : "▶"}
+                {expandedNodes.has("db") ? (
+                  <ChevronDown size={12} />
+                ) : (
+                  <ChevronRight size={12} />
+                )}
               </span>
-              <span className="item-icon">🗄️</span>
+              <Database size={14} className="item-icon" />
               <span className="item-name">
                 {connectionInfo.database || "information_schema"}
               </span>
@@ -217,38 +297,44 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
 
             {expandedNodes.has("db") && (
               <>
-                {/* Query 节点 */}
+                {/* Query node */}
                 <div className="tree-item level-1">
-                  <span className="expand-icon">▶</span>
-                  <span className="item-icon">📝</span>
+                  <span className="expand-icon">
+                    <ChevronRight size={12} />
+                  </span>
+                  <FileText size={14} className="item-icon" />
                   <span className="item-name">query</span>
                 </div>
 
-                {/* Collections 节点 */}
+                {/* Collections node */}
                 <div
                   className="tree-item level-1"
                   onClick={() => toggleNode("collections")}
                   style={{ cursor: "pointer" }}
                 >
                   <span className="expand-icon">
-                    {expandedNodes.has("collections") ? "▼" : "▶"}
+                    {expandedNodes.has("collections") ? (
+                      <ChevronDown size={12} />
+                    ) : (
+                      <ChevronRight size={12} />
+                    )}
                   </span>
-                  <span className="item-icon">📋</span>
+                  <List size={14} className="item-icon" />
                   <span className="item-name">collections</span>
                   <span className="tree-group-count">
                     {isSeekDB && collections.length === 0
-                      ? "(加载中...)"
+                      ? "(Loading...)"
                       : `(${collections.length})`}
                   </span>
                 </div>
 
-                {/* 集合列表 */}
+                {/* Collections list */}
                 {expandedNodes.has("collections") && (
                   <div>
                     {isSeekDB && collections.length === 0 ? (
                       <div className="loading" style={{ padding: "16px 28px" }}>
                         <div className="loading-spinner"></div>
-                        加载集合列表...
+                        Loading collections...
                       </div>
                     ) : (
                       collections.map((collection) => (
@@ -262,8 +348,10 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                           onClick={() => handleCollectionClick(collection.name)}
                           style={{ cursor: "pointer" }}
                         >
-                          <span className="expand-icon">▶</span>
-                          <span className="item-icon">📄</span>
+                          <span className="expand-icon">
+                            <ChevronRight size={12} />
+                          </span>
+                          <File size={14} className="item-icon" />
                           <span className="item-name">{collection.name}</span>
                         </div>
                       ))
@@ -275,30 +363,105 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           </div>
         </div>
 
-        {/* 右侧主区域 */}
+        {/* Right main area */}
         <div className="main-content">
-          {/* 查询编辑器 */}
+          {/* Query editor */}
           <div className="query-editor">
             <textarea
               className="query-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="输入 SQL 查询语句..."
+              placeholder="Enter SQL query..."
             />
             <div className="query-actions">
               <button className="btn btn-primary" onClick={handleExecuteQuery}>
-                ▶ Execute
+                <Play size={14} /> Execute
               </button>
-              <button className="btn btn-secondary">💾 Save</button>
-              <button className="btn btn-secondary">📋 Format</button>
+              {/* <button className="btn btn-secondary">
+                <Save size={14} /> Save
+              </button>
+              <button className="btn btn-secondary">
+                <AlignJustify size={14} /> Format
+              </button> */}
             </div>
           </div>
 
-          {/* 结果区域 */}
+          {/* Vector Similarity Search - Only for seekdb */}
+          {isSeekDB && (
+            <div className="vector-search-section">
+              <div className="vector-search-header">
+                <Sparkles size={16} />
+                <span>Similarity Search</span>
+              </div>
+              <div className="vector-search-form">
+                <div className="vector-search-input-row">
+                  <input
+                    type="text"
+                    className="vector-search-input"
+                    placeholder="Enter search text..."
+                    value={vectorSearchQuery}
+                    onChange={(e) => setVectorSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleVectorSearch()}
+                  />
+                  <button
+                    className="btn btn-success vector-search-btn"
+                    onClick={handleVectorSearch}
+                    disabled={vectorSearchLoading || !selectedCollection}
+                  >
+                    {vectorSearchLoading ? (
+                      <RefreshCw size={14} className="spin" />
+                    ) : (
+                      <Search size={14} />
+                    )}
+                    Search
+                  </button>
+                </div>
+                <div className="vector-search-options">
+                  <select
+                    className="vector-search-select"
+                    value={embeddingType}
+                    onChange={(e) =>
+                      setEmbeddingType(e.target.value as EmbeddingType)
+                    }
+                  >
+                    <option value="builtin">Built-in Model</option>
+                  </select>
+                  <input
+                    type="number"
+                    className="vector-search-limit"
+                    min={1}
+                    max={100}
+                    value={vectorSearchLimit}
+                    onChange={(e) =>
+                      setVectorSearchLimit(parseInt(e.target.value) || 10)
+                    }
+                  />
+                </div>
+                {(collectionModelName || searchModelName) && (
+                  <div className="vector-search-model-info">
+                    <div className="model-info-row">
+                      <span className="model-label">Collection Model:</span>
+                      <span className="model-value">
+                        {collectionModelName || "Unknown"}
+                      </span>
+                    </div>
+                    <div className="model-info-row">
+                      <span className="model-label">Search Model:</span>
+                      <span className="model-value">
+                        {searchModelName || "Unknown"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Results area */}
           <div className="result-area">
             <div className="result-header">
               <div className="search-box">
-                <span>🔍</span>
+                <Search size={14} />
                 <input
                   type="text"
                   placeholder="Search results"
@@ -307,12 +470,24 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 />
               </div>
               <div className="actions">
-                <button title="设置">⚙️</button>
-                <button title="添加">➕</button>
-                <button title="删除">🗑️</button>
-                <button title="切换">🔄</button>
-                <button title="上移">⬆️</button>
-                <button title="下移">⬇️</button>
+                <button title="Settings">
+                  <Settings size={14} />
+                </button>
+                <button title="Add">
+                  <Plus size={14} />
+                </button>
+                <button title="Delete">
+                  <Trash2 size={14} />
+                </button>
+                <button title="Refresh">
+                  <RefreshCw size={14} />
+                </button>
+                <button title="Move up">
+                  <ArrowUp size={14} />
+                </button>
+                <button title="Move down">
+                  <ArrowDown size={14} />
+                </button>
               </div>
             </div>
 
@@ -326,15 +501,15 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 </div>
               ) : error ? (
                 <div className="empty-state">
-                  <div className="icon">❌</div>
+                  <XCircle size={48} className="icon" />
                   <p style={{ color: "var(--danger-color, #dc3545)" }}>
                     {error}
                   </p>
                 </div>
               ) : !queryResult || !queryResult.columns || !queryResult.rows ? (
                 <div className="empty-state">
-                  <div className="icon">📊</div>
-                  <p>执行查询或选择集合查看数据</p>
+                  <BarChart3 size={48} className="icon" />
+                  <p>Execute a query or select a collection to view data</p>
                 </div>
               ) : (
                 <table className="data-table">
@@ -371,14 +546,14 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             </div>
           </div>
 
-          {/* 状态栏 */}
+          {/* Status bar */}
           <div className="status-bar">
             <div className="status-item">
-              <span>📊</span>
+              <BarChart3 size={14} />
               <span>{filteredRows.length} rows</span>
             </div>
             <div className="status-item">
-              <span>⏱️</span>
+              <Clock size={14} />
               <span>{executionTime}</span>
             </div>
           </div>

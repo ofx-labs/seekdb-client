@@ -19,7 +19,7 @@ import {
 import { WebviewHtmlLoader } from "../utils/WebviewHtmlLoader";
 
 /**
- * 数据库连接接口
+ * Database connection interface
  */
 interface DatabaseConnection {
   id: string;
@@ -35,7 +35,7 @@ interface DatabaseConnection {
 }
 
 /**
- * SeekDB 客户端实例管理
+ * SeekDB client instance management
  */
 interface SeekDBClientInstance {
   adminClient: SeekDBAdminClient;
@@ -43,7 +43,7 @@ interface SeekDBClientInstance {
 }
 
 /**
- * 数据库信息（从服务器获取）
+ * Database info (from server)
  */
 interface DatabaseInfo {
   name: string;
@@ -53,7 +53,7 @@ interface DatabaseInfo {
 }
 
 /**
- * 集合信息
+ * Collection info
  */
 interface CollectionInfo {
   name: string;
@@ -63,7 +63,7 @@ interface CollectionInfo {
 }
 
 /**
- * 查询结果
+ * Query result
  */
 interface QueryResultData {
   columns: { name: string; type: string }[];
@@ -73,7 +73,7 @@ interface QueryResultData {
 }
 
 /**
- * 警告信息
+ * Warning message
  */
 interface WarningMessage {
   type: "warning" | "info" | "error";
@@ -82,7 +82,7 @@ interface WarningMessage {
 }
 
 /**
- * DatabaseProvider - 管理数据库连接WebviewPanel
+ * DatabaseProvider - Manages database connection WebviewPanel
  */
 export class DatabaseProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -92,44 +92,44 @@ export class DatabaseProvider {
     connections: DatabaseConnection[]
   ) => void;
 
-  // SeekDB 客户端实例管理
+  // SeekDB client instance management
   private seekdbClients: Map<string, SeekDBClientInstance> = new Map();
-  // 警告信息缓存
+  // Warning message cache
   private warnings: WarningMessage[] = [];
-  // 向量化服务实例
+  // Embedding service instance
   private embeddingService: EmbeddingService | null = null;
-  // 向量缓存：key 为文本内容的 hash，value 为向量
+  // Embedding cache: key is hash of text content, value is vector
   private embeddingCache: Map<string, number[]> = new Map();
-  // 向量缓存的最大大小（防止内存溢出）
+  // Maximum size of embedding cache (prevent memory overflow)
   private readonly MAX_CACHE_SIZE = 10000;
-  // Webview HTML 加载器
+  // Webview HTML loader
   private htmlLoader: WebviewHtmlLoader;
 
   constructor(private readonly context: vscode.ExtensionContext) {
-    // 初始化 HTML 加载器
+    // Initialize HTML loader
     this.htmlLoader = new WebviewHtmlLoader(context.extensionUri);
-    // 从存储中加载已保存的连接
+    // Load saved connections from storage
     this.loadConnections();
-    // 初始化向量化服务
+    // Initialize embedding service
     this.initializeEmbeddingService();
   }
 
   /**
-   * 初始化向量化服务
+   * Initialize embedding service
    */
   private initializeEmbeddingService(): void {
     try {
       const config = vscode.workspace.getConfiguration("seekdb");
       this.embeddingService = EmbeddingServiceFactory.createFromConfig(config);
     } catch (error) {
-      console.error("初始化向量化服务失败:", error);
-      // 使用内置服务作为后备
+      console.error("Failed to initialize embedding service:", error);
+      // Use built-in service as fallback
       this.embeddingService = EmbeddingServiceFactory.create("builtin");
     }
   }
 
   /**
-   * 获取 SeekDB AdminClient
+   * Get SeekDB AdminClient
    */
   private getSeekDBAdminClient(
     connectionId: string
@@ -138,14 +138,14 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取 SeekDB Client
+   * Get SeekDB Client
    */
   private getSeekDBClient(connectionId: string): SeekDBClient | undefined {
     return this.seekdbClients.get(connectionId)?.client;
   }
 
   /**
-   * 创建 SeekDB 客户端实例
+   * Create SeekDB client instance
    */
   private async createSeekDBClients(
     connection: DatabaseConnection
@@ -171,7 +171,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 关闭 SeekDB 客户端
+   * Close SeekDB client
    */
   private async closeSeekDBClients(connectionId: string): Promise<void> {
     const instance = this.seekdbClients.get(connectionId);
@@ -182,14 +182,14 @@ export class DatabaseProvider {
           await instance.client.close();
         }
       } catch (error) {
-        console.error("关闭 SeekDB 客户端失败:", error);
+        console.error("Failed to close s client:", error);
       }
       this.seekdbClients.delete(connectionId);
     }
   }
 
   /**
-   * 添加警告信息
+   * Add warning message
    */
   private addWarning(
     type: "warning" | "info" | "error",
@@ -201,21 +201,21 @@ export class DatabaseProvider {
       timestamp: new Date(),
     };
     this.warnings.push(warning);
-    // 保留最近 100 条警告
+    // Keep the most recent 100 warnings
     if (this.warnings.length > 100) {
       this.warnings.shift();
     }
   }
 
   /**
-   * 检查是否为 SeekDB 类型连接
+   * Check if connection is SeekDB type
    */
   private isSeekDBConnection(connection: DatabaseConnection): boolean {
     return connection.type === "seekdb";
   }
 
   /**
-   * 设置连接变化回调
+   * Set connection change callback
    */
   public onConnectionsChanged(
     callback: (connections: DatabaseConnection[]) => void
@@ -224,14 +224,14 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取所有连接
+   * Get all connections
    */
   public getConnections(): DatabaseConnection[] {
     return this.connections;
   }
 
   /**
-   * 加载已保存的连接
+   * Load saved connections
    */
   private loadConnections(): void {
     const saved = this.context.globalState.get<DatabaseConnection[]>(
@@ -242,7 +242,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 保存连接
+   * Save connections
    */
   private saveConnections(): void {
     this.context.globalState.update("databaseConnections", this.connections);
@@ -250,18 +250,18 @@ export class DatabaseProvider {
   }
 
   /**
-   * 打开数据库连接页面（新tab）
+   * Open database connection page (new tab)
    */
   public openConnectPage(): void {
-    console.log("DatabaseProvider.openConnectPage 被调用");
+    console.log("DatabaseProvider.openConnectPage called");
 
-    // 如果已经有打开的panel，直接显示
+    // If panel already exists, show it
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.One);
       return;
     }
 
-    // 创建新的WebviewPanel
+    // Create new WebviewPanel
     this.panel = vscode.window.createWebviewPanel(
       "databaseConnect",
       "Connect to Server",
@@ -273,7 +273,7 @@ export class DatabaseProvider {
       }
     );
 
-    // 设置图标
+    // Set icon
     this.panel.iconPath = {
       light: vscode.Uri.joinPath(
         this.context.extensionUri,
@@ -289,7 +289,7 @@ export class DatabaseProvider {
       ),
     };
 
-    // 从配置获取默认值
+    // Get default values from config
     const config = vscode.workspace.getConfiguration("seekdb");
     const defaultConfig = {
       host: config.get("database.defaultHost", "127.0.0.1"),
@@ -300,27 +300,27 @@ export class DatabaseProvider {
       password: "",
     };
 
-    // 设置HTML内容
+    // Set HTML content
     this.panel.webview.html = this.getConnectPageHtml(
       this.panel.webview,
       defaultConfig
     );
 
-    // 处理消息
+    // Handle messages
     this.panel.webview.onDidReceiveMessage(
       (message) => this.handleMessage(message),
       undefined,
       this.context.subscriptions
     );
 
-    // 监听panel关闭
+    // Listen for panel close
     this.panel.onDidDispose(() => {
       this.panel = undefined;
     });
   }
 
   /**
-   * 处理来自Webview的消息
+   * Handle messages from Webview
    */
   private handleMessage(message: any): void {
     switch (message.type) {
@@ -340,7 +340,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 连接数据库
+   * Connect to database
    */
   private async connectDatabase(data: any): Promise<void> {
     const connection: DatabaseConnection = {
@@ -358,21 +358,24 @@ export class DatabaseProvider {
 
     try {
       vscode.window.showInformationMessage(
-        `正在连接到 ${data.host}:${data.port}...`
+        `Connecting to ${data.host}:${data.port}...`
       );
 
-      // 如果是 SeekDB 类型，创建真实连接
+      // If SeekDB type, create real connection
       if (this.isSeekDBConnection(connection)) {
         const clients = await this.createSeekDBClients(connection);
 
-        // 测试连接是否成功 - 尝试列出数据库
+        // Test if connection is successful - try to list databases
         try {
           await clients.adminClient.listDatabases(1);
           this.seekdbClients.set(connection.id, clients);
           connection.connected = true;
-          this.addWarning("info", `成功连接到 SeekDB: ${connection.name}`);
+          this.addWarning(
+            "info",
+            `Successfully connected to seekdb: ${connection.name}`
+          );
         } catch (connError) {
-          // 关闭失败的连接
+          // Close failed connection
           await clients.adminClient.close();
           if (clients.client) {
             await clients.client.close();
@@ -380,11 +383,11 @@ export class DatabaseProvider {
           throw connError;
         }
       } else {
-        // 非 SeekDB 类型，使用模拟连接
+        // Non-SeekDB type, use mock connection
         connection.connected = true;
       }
 
-      // 添加或更新连接
+      // Add or update connection
       const existingIndex = this.connections.findIndex((c) => c.id === data.id);
       if (existingIndex >= 0) {
         this.connections[existingIndex] = connection;
@@ -394,21 +397,23 @@ export class DatabaseProvider {
 
       this.saveConnections();
 
-      // 发送成功消息
+      // Send success message
       this.panel?.webview.postMessage({
         type: "connectionSuccess",
         data: connection,
       });
 
-      vscode.window.showInformationMessage(`已成功连接到 ${connection.name}`);
+      vscode.window.showInformationMessage(
+        `Successfully connected to ${connection.name}`
+      );
     } catch (error) {
       let errorMessage = String(error);
       if (error instanceof SeekDBConnectionError) {
-        errorMessage = `连接失败: 无法连接到服务器 ${data.host}:${data.port}`;
-        // 编辑器的右下角弹窗显示如何连接 seekdb，区分mac和 pc
+        errorMessage = `Connection failed: Unable to connect to server ${data.host}:${data.port}`;
+        // Show how to connect to seekdb in editor notification
         this.addWarning("error", errorMessage);
       } else if (error instanceof SeekDBError) {
-        errorMessage = `SeekDB 错误: ${error.message}`;
+        errorMessage = `seekdb error: ${error.message}`;
         this.addWarning("error", errorMessage);
       }
 
@@ -421,7 +426,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 保存连接配置（不连接）
+   * Save connection config (without connecting)
    */
   private saveConnection(data: any): void {
     const connection: DatabaseConnection = {
@@ -446,19 +451,19 @@ export class DatabaseProvider {
 
     this.saveConnections();
     vscode.window.showInformationMessage(
-      `连接配置 "${connection.name}" 已保存`
+      `Connection config "${connection.name}" saved`
     );
   }
 
   /**
-   * 测试连接
+   * Test connection
    */
   private async testConnection(data: any): Promise<void> {
     vscode.window.showInformationMessage(
-      `正在测试连接 ${data.host}:${data.port}...`
+      `Testing connection ${data.host}:${data.port}...`
     );
 
-    // 如果是 SeekDB 类型，进行真实测试
+    // If it's SeekDB type, perform real test
     if (data.type === "seekdb") {
       try {
         const testClient = new SeekDBAdminClient({
@@ -469,7 +474,7 @@ export class DatabaseProvider {
           tenant: data.tenant || DEFAULT_TENANT,
         });
 
-        // 尝试列出数据库来测试连接
+        // Try to list databases to test connection
         await testClient.listDatabases(1);
         await testClient.close();
 
@@ -477,13 +482,13 @@ export class DatabaseProvider {
           type: "testResult",
           data: { success: true },
         });
-        vscode.window.showInformationMessage("连接测试成功！");
+        vscode.window.showInformationMessage("Connection test successful!");
       } catch (error) {
-        let errorMessage = "连接测试失败";
+        let errorMessage = "Connection test failed";
         if (error instanceof SeekDBConnectionError) {
-          errorMessage = `无法连接到服务器: ${data.host}:${data.port}`;
+          errorMessage = `Unable to connect to server: ${data.host}:${data.port}`;
         } else if (error instanceof SeekDBError) {
-          errorMessage = `SeekDB 错误: ${error.message}`;
+          errorMessage = `seekdb error: ${error.message}`;
         } else if (error instanceof Error) {
           errorMessage = error.message;
         }
@@ -495,53 +500,55 @@ export class DatabaseProvider {
         vscode.window.showErrorMessage(errorMessage);
       }
     } else {
-      // 非 SeekDB 类型，使用模拟测试
+      // Non-SeekDB type, use simulated test
       setTimeout(() => {
         this.panel?.webview.postMessage({
           type: "testResult",
           data: { success: true },
         });
-        vscode.window.showInformationMessage("连接测试成功！");
+        vscode.window.showInformationMessage("Connection test successful!");
       }, 1000);
     }
   }
 
   /**
-   * 断开连接
+   * Disconnect from database
    */
   public async disconnectDatabase(connectionId: string): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (connection) {
-      // 如果是 SeekDB 类型，关闭真实连接
+      // If it's SeekDB type, close real connection
       if (this.isSeekDBConnection(connection)) {
         await this.closeSeekDBClients(connectionId);
-        this.addWarning("info", `已断开 SeekDB 连接: ${connection.name}`);
+        this.addWarning("info", `Disconnected from seekdb: ${connection.name}`);
       }
 
       connection.connected = false;
       this.saveConnections();
-      vscode.window.showInformationMessage(`已断开连接 ${connection.name}`);
+      vscode.window.showInformationMessage(
+        `Disconnected from ${connection.name}`
+      );
     }
   }
 
   /**
-   * 删除连接
+   * Delete connection
    */
   public async deleteConnection(connectionId: string): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
 
-    // 如果是 SeekDB 类型且已连接，先关闭连接
+    // If it's SeekDB type and connected, close connection first
     if (connection && this.isSeekDBConnection(connection)) {
       await this.closeSeekDBClients(connectionId);
     }
 
     this.connections = this.connections.filter((c) => c.id !== connectionId);
     this.saveConnections();
-    vscode.window.showInformationMessage("连接已删除");
+    vscode.window.showInformationMessage("Connection deleted");
   }
 
   /**
-   * 获取服务器上的数据库列表（仅 SeekDB）
+   * Get server database list (SeekDB only)
    */
   public async getServerDatabases(
     connectionId: string
@@ -553,22 +560,25 @@ export class DatabaseProvider {
 
     let adminClient = this.getSeekDBAdminClient(connectionId);
 
-    // 如果客户端不存在且连接已标记为已连接，尝试重新创建客户端
+    // If client doesn't exist but connection is marked as connected, try to recreate client
     if (!adminClient && connection.connected) {
       try {
         const clients = await this.createSeekDBClients(connection);
         this.seekdbClients.set(connectionId, clients);
         adminClient = clients.adminClient;
-        this.addWarning("info", `重新建立 SeekDB 连接: ${connection.name}`);
+        this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.addWarning("error", `重新建立连接失败: ${errorMsg}`);
+        this.addWarning("error", `Failed to reconnect: ${errorMsg}`);
         return [];
       }
     }
 
     if (!adminClient) {
-      this.addWarning("warning", `连接 ${connection.name} 未建立 AdminClient`);
+      this.addWarning(
+        "warning",
+        `Connection ${connection.name} has no AdminClient`
+      );
       return [];
     }
 
@@ -582,13 +592,13 @@ export class DatabaseProvider {
       }));
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.addWarning("error", `获取数据库列表失败: ${errorMsg}`);
+      this.addWarning("error", `Failed to get database list: ${errorMsg}`);
       throw error;
     }
   }
 
   /**
-   * 创建数据库（仅 SeekDB）
+   * Create database (SeekDB only)
    */
   public async createServerDatabase(
     connectionId: string,
@@ -596,12 +606,14 @@ export class DatabaseProvider {
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
-      throw new Error("仅支持 SeekDB 类型连接创建数据库");
+      throw new Error(
+        "Only seekdb type connections support creating databases"
+      );
     }
 
     let adminClient = this.getSeekDBAdminClient(connectionId);
 
-    // 如果客户端不存在，尝试重新创建
+    // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
       const clients = await this.createSeekDBClients(connection);
       this.seekdbClients.set(connectionId, clients);
@@ -609,22 +621,24 @@ export class DatabaseProvider {
     }
 
     if (!adminClient) {
-      throw new Error("连接未建立");
+      throw new Error("Connection not established");
     }
 
     try {
       await adminClient.createDatabase(dbName);
-      this.addWarning("info", `成功创建数据库: ${dbName}`);
-      vscode.window.showInformationMessage(`成功创建数据库: ${dbName}`);
+      this.addWarning("info", `Successfully created database: ${dbName}`);
+      vscode.window.showInformationMessage(
+        `Successfully created database: ${dbName}`
+      );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.addWarning("error", `创建数据库失败: ${errorMsg}`);
+      this.addWarning("error", `Failed to create database: ${errorMsg}`);
       throw error;
     }
   }
 
   /**
-   * 删除数据库（仅 SeekDB）
+   * Delete database (SeekDB only)
    */
   public async deleteServerDatabase(
     connectionId: string,
@@ -632,12 +646,14 @@ export class DatabaseProvider {
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
-      throw new Error("仅支持 SeekDB 类型连接删除数据库");
+      throw new Error(
+        "Only seekdb type connections support deleting databases"
+      );
     }
 
     let adminClient = this.getSeekDBAdminClient(connectionId);
 
-    // 如果客户端不存在，尝试重新创建
+    // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
       const clients = await this.createSeekDBClients(connection);
       this.seekdbClients.set(connectionId, clients);
@@ -645,26 +661,28 @@ export class DatabaseProvider {
     }
 
     if (!adminClient) {
-      throw new Error("连接未建立");
+      throw new Error("Connection not established");
     }
 
     try {
       await adminClient.deleteDatabase(dbName);
-      this.addWarning("info", `成功删除数据库: ${dbName}`);
-      vscode.window.showInformationMessage(`成功删除数据库: ${dbName}`);
+      this.addWarning("info", `Successfully deleted database: ${dbName}`);
+      vscode.window.showInformationMessage(
+        `Successfully deleted database: ${dbName}`
+      );
     } catch (error) {
       if (error instanceof SeekDBNotFoundError) {
-        this.addWarning("warning", `数据库不存在: ${dbName}`);
+        this.addWarning("warning", `Database not found: ${dbName}`);
       } else {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.addWarning("error", `删除数据库失败: ${errorMsg}`);
+        this.addWarning("error", `Failed to delete database: ${errorMsg}`);
       }
       throw error;
     }
   }
 
   /**
-   * 获取数据库详情（仅 SeekDB）
+   * Get database details (SeekDB only)
    */
   public async getServerDatabaseInfo(
     connectionId: string,
@@ -677,7 +695,7 @@ export class DatabaseProvider {
 
     let adminClient = this.getSeekDBAdminClient(connectionId);
 
-    // 如果客户端不存在，尝试重新创建
+    // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
       try {
         const clients = await this.createSeekDBClients(connection);
@@ -702,7 +720,7 @@ export class DatabaseProvider {
       };
     } catch (error) {
       if (error instanceof SeekDBNotFoundError) {
-        this.addWarning("warning", `数据库不存在: ${dbName}`);
+        this.addWarning("warning", `Database not found: ${dbName}`);
         return null;
       }
       throw error;
@@ -710,7 +728,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 打开集合查看页面（新tab）
+   * Open collection browser page (new tab)
    */
   public openCollectionBrowser(
     connectionId: string,
@@ -718,15 +736,15 @@ export class DatabaseProvider {
   ): void {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
-      vscode.window.showErrorMessage("未找到数据库连接");
+      vscode.window.showErrorMessage("Database connection not found");
       return;
     }
 
-    // 检查是否已有该连接的集合浏览器
+    // Check if collection browser already exists for this connection
     const existingPanel = this.collectionPanels.get(connectionId);
     if (existingPanel) {
       existingPanel.reveal(vscode.ViewColumn.One);
-      // 如果指定了collectionName，加载该collection的数据
+      // If collectionName is specified, load that collection's data
       if (collectionName) {
         setTimeout(() => {
           existingPanel.webview.postMessage({
@@ -738,7 +756,7 @@ export class DatabaseProvider {
       return;
     }
 
-    // 创建新的WebviewPanel
+    // Create new WebviewPanel
     const panel = vscode.window.createWebviewPanel(
       "databaseCollectionBrowser",
       `${connection.name} - Collections`,
@@ -750,7 +768,7 @@ export class DatabaseProvider {
       }
     );
 
-    // 设置图标
+    // Set icon
     panel.iconPath = {
       light: vscode.Uri.joinPath(
         this.context.extensionUri,
@@ -766,16 +784,16 @@ export class DatabaseProvider {
       ),
     };
 
-    // 设置HTML内容
+    // Set HTML content
     panel.webview.html = this.getCollectionBrowserHtml(
       panel.webview,
       connection
     );
 
-    // 保存panel引用
+    // Save panel reference
     this.collectionPanels.set(connectionId, panel);
 
-    // 处理消息
+    // Handle messages
     panel.webview.onDidReceiveMessage(
       (message) =>
         this.handleCollectionBrowserMessage(message, panel, connection),
@@ -783,17 +801,17 @@ export class DatabaseProvider {
       this.context.subscriptions
     );
 
-    // 监听panel关闭
+    // Listen for panel close
     panel.onDidDispose(() => {
       this.collectionPanels.delete(connectionId);
     });
 
-    // 如果是 SeekDB 连接，立即加载真实集合列表
+    // If it's a SeekDB connection, load real collections list immediately
     if (this.isSeekDBConnection(connection)) {
-      // 延迟一点确保 webview 已完全加载
+      // Delay a bit to ensure webview is fully loaded
       setTimeout(async () => {
         await this.refreshCollections(panel, connection);
-        // 如果指定了collectionName，加载该collection的数据
+        // If collectionName is specified, load that collection's data
         if (collectionName) {
           setTimeout(() => {
             panel.webview.postMessage({
@@ -807,28 +825,28 @@ export class DatabaseProvider {
   }
 
   /**
-   * 打开集合浏览器并加载指定的collection（让用户选择connection）
+   * Open collection browser and load specified collection (let user choose connection)
    */
   public async openCollectionBrowserWithCollection(
     collectionName: string
   ): Promise<void> {
-    // 获取所有已连接的连接
+    // Get all connected connections
     const connectedConnections = this.connections.filter((c) => c.connected);
 
     if (connectedConnections.length === 0) {
       vscode.window.showWarningMessage(
-        "没有已连接的数据库连接，请先连接数据库"
+        "No connected database connections, please connect to a database first"
       );
       return;
     }
 
-    // 如果只有一个连接，直接使用
+    // If only one connection, use it directly
     if (connectedConnections.length === 1) {
       this.openCollectionBrowser(connectedConnections[0].id, collectionName);
       return;
     }
 
-    // 多个连接，让用户选择
+    // Multiple connections, let user choose
     const items = connectedConnections.map((conn) => ({
       label: conn.name,
       description: `${conn.type} - ${conn.host}:${conn.port}`,
@@ -836,7 +854,7 @@ export class DatabaseProvider {
     }));
 
     const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: `选择数据库连接以查看 Collection: ${collectionName}`,
+      placeHolder: `Select database connection to view Collection: ${collectionName}`,
     });
 
     if (selected) {
@@ -845,7 +863,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理集合浏览器消息
+   * Handle collection browser messages
    */
   private async handleCollectionBrowserMessage(
     message: any,
@@ -895,7 +913,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理加载数据库列表
+   * Handle loading database list
    */
   private async handleLoadDatabases(
     panel: vscode.WebviewPanel,
@@ -919,36 +937,36 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理选择数据库
+   * Handle database selection
    */
   private async handleSelectDatabase(
     dbName: string,
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection
   ): Promise<void> {
-    // 更新连接的数据库
+    // Update connection's database
     const connIndex = this.connections.findIndex((c) => c.id === connection.id);
     if (connIndex >= 0) {
       this.connections[connIndex].database = dbName;
       connection.database = dbName;
       this.saveConnections();
 
-      // 重新创建客户端
+      // Recreate client
       if (this.isSeekDBConnection(connection)) {
         await this.closeSeekDBClients(connection.id);
         const clients = await this.createSeekDBClients(connection);
         this.seekdbClients.set(connection.id, clients);
       }
 
-      // 刷新集合列表
+      // Refresh collections list
       await this.refreshCollections(panel, connection);
-      this.addWarning("info", `已切换到数据库: ${dbName}`);
+      this.addWarning("info", `Switched to database: ${dbName}`);
     }
   }
 
   /**
-   * 为连接选择数据库（公共方法，用于从外部切换数据库）
-   * 如果该连接有已打开的 Collection Browser panel，会自动刷新
+   * Select database for connection (public method for external database switching)
+   * If this connection has an open Collection Browser panel, it will be refreshed automatically
    */
   public async selectDatabaseForConnection(
     connectionId: string,
@@ -956,24 +974,24 @@ export class DatabaseProvider {
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
-      throw new Error(`未找到连接: ${connectionId}`);
+      throw new Error(`Connection not found: ${connectionId}`);
     }
 
-    // 更新连接的数据库
+    // Update connection's database
     const connIndex = this.connections.findIndex((c) => c.id === connectionId);
     if (connIndex >= 0) {
       this.connections[connIndex].database = dbName;
       connection.database = dbName;
       this.saveConnections();
 
-      // 重新创建客户端
+      // Recreate client
       if (this.isSeekDBConnection(connection)) {
         await this.closeSeekDBClients(connection.id);
         const clients = await this.createSeekDBClients(connection);
         this.seekdbClients.set(connection.id, clients);
       }
 
-      // 如果该连接有已打开的 Collection Browser panel，刷新集合列表
+      // If this connection has an open Collection Browser panel, refresh collections list
       const existingPanel = this.collectionPanels.get(connectionId);
       if (existingPanel) {
         await this.refreshCollections(existingPanel, connection);
@@ -982,7 +1000,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理创建数据库
+   * Handle create database
    */
   private async handleCreateDatabase(
     dbName: string,
@@ -991,7 +1009,7 @@ export class DatabaseProvider {
   ): Promise<void> {
     try {
       await this.createServerDatabase(connection.id, dbName);
-      // 刷新数据库列表
+      // Refresh database list
       await this.handleLoadDatabases(panel, connection);
       panel.webview.postMessage({
         type: "databaseCreated",
@@ -1007,7 +1025,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理删除数据库
+   * Handle delete database
    */
   private async handleDeleteDatabase(
     dbName: string,
@@ -1016,7 +1034,7 @@ export class DatabaseProvider {
   ): Promise<void> {
     try {
       await this.deleteServerDatabase(connection.id, dbName);
-      // 刷新数据库列表
+      // Refresh database list
       await this.handleLoadDatabases(panel, connection);
       panel.webview.postMessage({
         type: "databaseDeleted",
@@ -1032,7 +1050,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 执行SQL查询
+   * Execute SQL query
    */
   private async executeQuery(
     sql: string,
@@ -1041,7 +1059,7 @@ export class DatabaseProvider {
   ): Promise<void> {
     const startTime = Date.now();
 
-    // 如果是 SeekDB 类型，执行真实查询
+    // If it's SeekDB type, execute real query
     if (this.isSeekDBConnection(connection)) {
       try {
         const result = await this.executeSeekDBQuery(connection.id, sql);
@@ -1056,14 +1074,14 @@ export class DatabaseProvider {
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.addWarning("error", `SQL 执行失败: ${errorMsg}`);
+        this.addWarning("error", `SQL execution failed: ${errorMsg}`);
         panel.webview.postMessage({
           type: "queryError",
           data: { error: errorMsg },
         });
       }
     } else {
-      // 非 SeekDB 类型，使用模拟数据
+      // Non-SeekDB type, use mock data
       const mockData = this.getMockQueryResult(sql);
       panel.webview.postMessage({
         type: "queryResult",
@@ -1073,7 +1091,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 执行 SeekDB SQL 查询
+   * Execute SeekDB SQL query
    */
   private async executeSeekDBQuery(
     connectionId: string,
@@ -1081,10 +1099,10 @@ export class DatabaseProvider {
   ): Promise<QueryResultData> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
-      throw new Error("连接不存在");
+      throw new Error("Connection does not exist");
     }
 
-    // 创建临时客户端来执行查询
+    // Create temporary client to execute query
     const tempClient = new SeekDBClient({
       host: connection.host,
       port: connection.port,
@@ -1095,8 +1113,8 @@ export class DatabaseProvider {
     });
 
     try {
-      // 使用 mysql2 直接执行 SQL
-      // SeekDBClient 内部使用 mysql2，我们通过创建新连接来执行原始 SQL
+      // Use mysql2 to execute SQL directly
+      // SeekDBClient uses mysql2 internally, we create a new connection to execute raw SQL
       const mysql = await import("mysql2/promise");
       const conn = await mysql.createConnection({
         host: connection.host,
@@ -1109,7 +1127,7 @@ export class DatabaseProvider {
       const [rows, fields] = await conn.execute(sql);
       await conn.end();
 
-      // 解析结果
+      // Parse results
       const columns = (fields as any[]).map((field: any) => ({
         name: field.name,
         type: this.mysqlTypeToString(field.type, field.length),
@@ -1131,10 +1149,10 @@ export class DatabaseProvider {
   }
 
   /**
-   * MySQL 类型转字符串
+   * MySQL type to string
    */
   private mysqlTypeToString(type: number, length?: number): string {
-    // MySQL 类型常量映射
+    // MySQL type constant mapping
     const typeMap: Record<number, string> = {
       0: "DECIMAL",
       1: "TINYINT",
@@ -1196,14 +1214,14 @@ export class DatabaseProvider {
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.addWarning("error", `加载集合数据失败: ${errorMsg}`);
+        this.addWarning("error", `Failed to load collection data: ${errorMsg}`);
         panel.webview.postMessage({
           type: "queryError",
           data: { error: errorMsg },
         });
       }
     } else {
-      // 非 SeekDB 类型，使用模拟数据
+      // Non-SeekDB type, use mock data
       const mockData = this.getMockCollectionData(collectionName);
       panel.webview.postMessage({
         type: "collectionData",
@@ -1216,7 +1234,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 刷新集合列表
+   * Refresh collections list
    */
   private async refreshCollections(
     panel: vscode.WebviewPanel,
@@ -1231,14 +1249,14 @@ export class DatabaseProvider {
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.addWarning("error", `获取集合列表失败: ${errorMsg}`);
+        this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
         panel.webview.postMessage({
           type: "collectionsError",
           data: { error: errorMsg },
         });
       }
     } else {
-      // 非 SeekDB 类型，使用模拟数据
+      // Non-SeekDB type, use mock data
       const mockCollections = this.getMockCollections();
       panel.webview.postMessage({
         type: "collectionsList",
@@ -1248,7 +1266,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取 SeekDB 集合列表
+   * Get SeekDB collections list
    */
   private async getSeekDBCollections(
     connection: DatabaseConnection
@@ -1279,7 +1297,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取模拟的集合列表
+   * Get mock collections list
    */
   private getMockCollections(): CollectionInfo[] {
     return [
@@ -1301,7 +1319,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取模拟的查询结果
+   * Get mock query result
    */
   private getMockQueryResult(sql: string): QueryResultData {
     return {
@@ -1328,7 +1346,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取模拟的集合数据
+   * Get mock collection data
    */
   private getMockCollectionData(collectionName: string): QueryResultData {
     return {
@@ -1348,24 +1366,24 @@ export class DatabaseProvider {
   }
 
   /**
-   * 获取警告信息
+   * Get warnings
    */
   public getWarnings(): WarningMessage[] {
     return [...this.warnings];
   }
 
   /**
-   * 清空警告信息
+   * Clear warnings
    */
   public clearWarnings(): void {
     this.warnings = [];
   }
 
   /**
-   * 计算文本的哈希值（用于缓存键）
+   * Calculate hash of text (for cache key)
    */
   private hashText(text: string): string {
-    // 使用简单的哈希算法生成缓存键
+    // Use simple hash algorithm to generate cache key
     let hash = 0;
     for (let i = 0; i < text.length; i++) {
       const char = text.charCodeAt(i);
@@ -1376,10 +1394,10 @@ export class DatabaseProvider {
   }
 
   /**
-   * 更新向量缓存（带大小限制）
+   * Update embedding cache (with size limit)
    */
   private updateCache(key: string, vector: number[]): void {
-    // 如果缓存已满，删除最旧的条目（简单策略：删除第一个）
+    // If cache is full, delete oldest entry (simple strategy: delete first)
     if (this.embeddingCache.size >= this.MAX_CACHE_SIZE) {
       const firstKey = this.embeddingCache.keys().next().value;
       if (firstKey) {
@@ -1390,7 +1408,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * 处理向量相似度搜索
+   * Handle vector similarity search
    */
   private async handleVectorSearch(
     data: {
@@ -1411,7 +1429,7 @@ export class DatabaseProvider {
       if (!query || !query.trim()) {
         panel.webview.postMessage({
           type: "vectorSearchError",
-          data: { error: "查询文本不能为空" },
+          data: { error: "Query text cannot be empty" },
         });
         return;
       }
@@ -1419,15 +1437,15 @@ export class DatabaseProvider {
       if (!this.isSeekDBConnection(connection)) {
         panel.webview.postMessage({
           type: "vectorSearchError",
-          data: { error: "向量搜索仅支持 SeekDB 连接" },
+          data: { error: "Vector search only supports seekdb connections" },
         });
         return;
       }
 
-      // 创建或获取向量化服务
+      // Create or get embedding service
       let embeddingService = this.embeddingService;
       if (embeddingType && embeddingType !== "builtin") {
-        // 如果指定了外部模型，从配置创建服务实例
+        // If external model is specified, create service instance from config
         const config = vscode.workspace.getConfiguration(
           "seekdb.database.embedding"
         );
@@ -1487,29 +1505,29 @@ export class DatabaseProvider {
             break;
           }
           default:
-            throw new Error(`不支持的向量化类型: ${embeddingType}`);
+            throw new Error(`Unsupported embedding type: ${embeddingType}`);
         }
       }
 
       if (!embeddingService) {
-        // 使用配置中的默认设置创建服务
+        // Create service using default settings from config
         embeddingService = EmbeddingServiceFactory.createFromConfig(
           vscode.workspace.getConfiguration("seekdb.database")
         );
       }
 
-      // 将查询文本转换为向量（使用缓存）
+      // Convert query text to vector (use cache)
       const queryText = query.trim();
       const queryHash = this.hashText(queryText);
       let queryVector = this.embeddingCache.get(queryHash);
 
       if (!queryVector) {
-        vscode.window.showInformationMessage("正在向量化查询文本...");
+        vscode.window.showInformationMessage("Vectorizing query text...");
         queryVector = await embeddingService.embed(queryText);
         this.updateCache(queryHash, queryVector);
       }
 
-      // 从集合中获取数据
+      // Get data from collection
       const sql = `SELECT * FROM \`${collectionName}\` LIMIT 1000`;
       const collectionData = await this.executeSeekDBQuery(connection.id, sql);
 
@@ -1525,11 +1543,11 @@ export class DatabaseProvider {
         return;
       }
 
-      // 检查是否有预存的向量字段（常见的向量字段名）
+      // Check for pre-stored vector field (common vector field names)
       const vectorFieldNames = ["_vector", "embedding", "vector", "embeddings"];
       let vectorFieldName: string | null = null;
 
-      // 检查第一行数据是否有向量字段
+      // Check if first row has vector field
       if (collectionData.rows.length > 0) {
         const firstRow = collectionData.rows[0];
         for (const fieldName of vectorFieldNames) {
@@ -1537,7 +1555,7 @@ export class DatabaseProvider {
             firstRow[fieldName] !== undefined &&
             firstRow[fieldName] !== null
           ) {
-            // 检查是否是数组格式的向量
+            // Check if it's array format vector
             const vectorValue = firstRow[fieldName];
             if (
               Array.isArray(vectorValue) &&
@@ -1547,7 +1565,7 @@ export class DatabaseProvider {
               vectorFieldName = fieldName;
               break;
             }
-            // 检查是否是 JSON 字符串格式的向量
+            // Check if it's JSON string format vector
             if (typeof vectorValue === "string") {
               try {
                 const parsed = JSON.parse(vectorValue);
@@ -1560,14 +1578,14 @@ export class DatabaseProvider {
                   break;
                 }
               } catch {
-                // 不是 JSON，继续检查下一个字段
+                // Not JSON, continue checking next field
               }
             }
           }
         }
       }
 
-      // 对每一行数据进行向量化和相似度计算（并行处理）
+      // Vectorize and calculate similarity for each row (parallel processing)
       const results: Array<{
         row: Record<string, any>;
         similarity: number;
@@ -1580,20 +1598,20 @@ export class DatabaseProvider {
 
       if (vectorFieldName) {
         vscode.window.showInformationMessage(
-          `检测到向量字段 "${vectorFieldName}"，直接使用存储的向量进行计算...`
+          `Detected vector field "${vectorFieldName}", using stored vectors for calculation...`
         );
       } else {
         vscode.window.showInformationMessage(
-          `未检测到向量字段，正在并行处理 ${totalRows} 行数据的向量化...`
+          `No vector field detected, processing ${totalRows} rows in parallel for vectorization...`
         );
       }
 
-      // 准备所有行的文本和向量化任务
+      // Prepare text and vectorization tasks for all rows
       const rowTasks = collectionData.rows.map(async (row) => {
         try {
           let rowVector: number[] | null = null;
 
-          // 如果存在向量字段，直接使用
+          // If vector field exists, use it directly
           if (
             vectorFieldName &&
             row[vectorFieldName] !== undefined &&
@@ -1602,11 +1620,11 @@ export class DatabaseProvider {
             const vectorValue = row[vectorFieldName];
 
             if (Array.isArray(vectorValue)) {
-              // 已经是数组格式
+              // Already in array format
               rowVector = vectorValue;
               vectorFieldUsed++;
             } else if (typeof vectorValue === "string") {
-              // 尝试解析 JSON 字符串
+              // Try to parse JSON string
               try {
                 const parsed = JSON.parse(vectorValue);
                 if (Array.isArray(parsed)) {
@@ -1614,17 +1632,17 @@ export class DatabaseProvider {
                   vectorFieldUsed++;
                 }
               } catch {
-                // 解析失败，继续使用文本向量化
+                // Parse failed, continue with text vectorization
               }
             }
           }
 
-          // 如果没有向量字段或解析失败，进行文本向量化
+          // If no vector field or parse failed, perform text vectorization
           if (!rowVector) {
-            // 将行数据转换为文本（选择所有文本字段，排除向量字段）
+            // Convert row data to text (select all text fields, exclude vector fields)
             const textFields: string[] = [];
             for (const [key, value] of Object.entries(row)) {
-              // 跳过向量字段
+              // Skip vector fields
               if (vectorFieldNames.includes(key.toLowerCase())) {
                 continue;
               }
@@ -1643,22 +1661,22 @@ export class DatabaseProvider {
             }
             const rowText = textFields.join(" ");
 
-            // 检查缓存
+            // Check cache
             const textHash = this.hashText(rowText);
             rowVector = this.embeddingCache.get(textHash) || null;
 
-            // 如果缓存中没有，进行向量化并缓存
+            // If not in cache, vectorize and cache
             if (!rowVector) {
               cacheMisses++;
               rowVector = await embeddingService.embed(rowText);
-              // 更新缓存（如果缓存已满，删除最旧的条目）
+              // Update cache (if cache is full, delete oldest entry)
               this.updateCache(textHash, rowVector);
             } else {
               cacheHits++;
             }
           }
 
-          // 计算相似度
+          // Calculate similarity
           const similarity = cosineSimilarity(queryVector, rowVector);
 
           return {
@@ -1666,50 +1684,50 @@ export class DatabaseProvider {
             similarity,
           };
         } catch (error) {
-          console.error("处理行数据时出错:", error);
-          // 返回 null 表示跳过此行
+          console.error("Error processing row data:", error);
+          // Return null to skip this row
           return null;
         }
       });
 
-      // 并行执行所有向量化任务
+      // Execute all vectorization tasks in parallel
       const rowResults = await Promise.all(rowTasks);
 
-      // 过滤掉 null 值（出错的行）
+      // Filter out null values (rows with errors)
       for (const result of rowResults) {
         if (result !== null) {
           results.push(result);
         }
       }
 
-      // 记录统计信息（仅在开发模式下输出）
+      // Log statistics (only output in dev mode)
       if (vectorFieldName) {
         console.log(
-          `向量搜索统计: 使用存储的向量字段 "${vectorFieldName}"，共 ${vectorFieldUsed} 条记录`
+          `Vector search statistics: using stored vector field "${vectorFieldName}", ${vectorFieldUsed} records`
         );
       } else if (cacheHits > 0 || cacheMisses > 0) {
         const hitRate = ((cacheHits / (cacheHits + cacheMisses)) * 100).toFixed(
           1
         );
         console.log(
-          `向量搜索缓存统计: 命中 ${cacheHits} 次, 未命中 ${cacheMisses} 次, 命中率 ${hitRate}%`
+          `Vector search cache statistics: hit ${cacheHits} times, miss ${cacheMisses} times, hit rate ${hitRate}%`
         );
       }
 
-      // 按相似度排序
+      // Sort by similarity
       results.sort((a, b) => b.similarity - a.similarity);
 
-      // 取前 limit 条结果
+      // Get top limit results
       const topResults = results.slice(0, limit);
 
-      // 获取搜索使用的模型名称
+      // Get search model name
       const searchModelName = embeddingService.getModelName();
 
-      // 推断 collection 使用的模型（如果有向量字段，尝试从元数据推断，否则为 null）
+      // Infer collection model used (if vector field exists, try to infer from metadata, otherwise null)
       let collectionModelName: string | null = null;
       if (vectorFieldName) {
-        // 如果有向量字段，尝试从数据中推断模型
-        // 可以通过向量维度来推断：384维通常是 all-MiniLM-L6-v2，1536维通常是 OpenAI text-embedding-3-small
+        // If vector field exists, try to infer model from data
+        // Can infer model by vector dimension: 384 dimensions usually means all-MiniLM-L6-v2, 1536 dimensions usually means OpenAI text-embedding-3-small
         if (collectionData.rows.length > 0) {
           const firstRow = collectionData.rows[0];
           const vectorValue = firstRow[vectorFieldName];
@@ -1724,11 +1742,11 @@ export class DatabaseProvider {
                 vectorLength = parsed.length;
               }
             } catch {
-              // 解析失败
+              // Parse failed
             }
           }
 
-          // 根据向量维度推断模型
+          // Infer model by vector dimension
           if (vectorLength === 384) {
             collectionModelName = "Builtin (Xenova/all-MiniLM-L6-v2)";
           } else if (vectorLength === 1536) {
@@ -1736,17 +1754,17 @@ export class DatabaseProvider {
           } else if (vectorLength === 3072) {
             collectionModelName = "OpenAI text-embedding-3-large";
           } else if (vectorLength > 0) {
-            collectionModelName = `Unknown (${vectorLength}维)`;
+            collectionModelName = `Unknown (${vectorLength} dimensions)`;
           } else {
             collectionModelName = "Unknown";
           }
         }
       } else {
-        // 没有向量字段，说明数据还未向量化
+        // No vector field, means data is not vectorized
         collectionModelName = null;
       }
 
-      // 构建结果数据
+      // Build result data
       const resultData: QueryResultData = {
         columns: [
           ...collectionData.columns,
@@ -1765,29 +1783,29 @@ export class DatabaseProvider {
         data: {
           query,
           ...resultData,
-          // 添加模型信息
+          // Add model information
           collectionModelName,
           searchModelName,
         },
       });
 
       vscode.window.showInformationMessage(
-        `向量搜索完成，找到 ${topResults.length} 条相似结果`
+        `Vector search completed, found ${topResults.length} similar results`
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.addWarning("error", `向量搜索失败: ${errorMsg}`);
+      this.addWarning("error", `Vector search failed: ${errorMsg}`);
       panel.webview.postMessage({
         type: "vectorSearchError",
         data: { error: errorMsg },
       });
-      vscode.window.showErrorMessage(`向量搜索失败: ${errorMsg}`);
+      vscode.window.showErrorMessage(`Vector search failed: ${errorMsg}`);
     }
   }
 
   /**
-   * 生成集合浏览器页面HTML
-   * 使用 React 组件渲染，从构建产物加载
+   * Generate collection browser page HTML
+   * Use React components to render, load from build artifacts
    */
   private getCollectionBrowserHtml(
     webview: vscode.Webview,
@@ -1795,7 +1813,7 @@ export class DatabaseProvider {
   ): string {
     const isSeekDB = this.isSeekDBConnection(connection);
 
-    // 注入到页面的配置
+    // Inject configuration into page
     const config = {
       __VSCODE_CONNECTION_INFO__: {
         name: connection.name,
@@ -1810,14 +1828,14 @@ export class DatabaseProvider {
   }
 
   /**
-   * 生成连接页面HTML
-   * 使用 React 组件渲染，从构建产物加载
+   * Generate connection page HTML
+   * Use React components to render, load from build artifacts
    */
   private getConnectPageHtml(
     webview: vscode.Webview,
     defaultConfig: any
   ): string {
-    // 注入到页面的配置
+    // Inject configuration into page
     const config = {
       __VSCODE_DEFAULT_CONFIG__: defaultConfig,
     };

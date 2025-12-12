@@ -1,4 +1,16 @@
 import React, { useState, useEffect } from "react";
+import {
+  Database,
+  Search,
+  Zap,
+  Settings,
+  KeyRound,
+  Globe,
+  Network,
+  Save,
+  PlugZap,
+  X,
+} from "lucide-react";
 import "./ConnectPage.css";
 
 interface DefaultConfig {
@@ -31,7 +43,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     text: string;
   } | null>(null);
 
-  // 表单状态
+  // Form state
   const [formData, setFormData] = useState({
     connectionName: "",
     group: "",
@@ -52,7 +64,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     httpProxyUrl: "",
   });
 
-  // 监听来自扩展的消息
+  // Listen for messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const msg = event.data;
@@ -60,15 +72,15 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
 
       switch (msg.type) {
         case "connectionSuccess":
-          showMessage("success", "连接成功！");
+          showMessage("success", "Connection successful!");
           break;
         case "connectionError":
-          showMessage("error", msg.data?.error || "连接失败");
+          showMessage("error", msg.data?.error || "Connection failed");
           break;
         case "testResult":
           showMessage(
             msg.data?.success ? "success" : "error",
-            msg.data?.success ? "测试成功！" : "测试失败"
+            msg.data?.success ? "Test successful!" : "Test failed"
           );
           break;
       }
@@ -105,7 +117,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   const handleSave = () => {
     const data = getFormData();
     if (!data.connectionName) {
-      showMessage("error", "请输入连接名称");
+      showMessage("error", "Please enter connection name");
       return;
     }
     vscode.postMessage({ type: "save", data });
@@ -114,7 +126,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   const handleConnect = () => {
     const data = getFormData();
     if (!data.host || !data.port) {
-      showMessage("error", "请填写主机地址和端口");
+      showMessage("error", "Please enter host and port");
       return;
     }
     setLoading(true);
@@ -125,9 +137,9 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     vscode.postMessage({ type: "close" });
   };
 
-  const dbTypes: { type: DbType; label: string; icon: string }[] = [
-    { type: "seekdb", label: "seekdb", icon: "🔍" },
-    { type: "nero", label: "Nero", icon: "⚡" },
+  const dbTypes: { type: DbType; label: string; icon: React.ReactNode }[] = [
+    { type: "seekdb", label: "seekdb", icon: <Search size={16} /> },
+    { type: "nero", label: "Nero", icon: <Zap size={16} /> },
   ];
 
   const showTenant = currentDbType === "seekdb" || currentDbType === "nero";
@@ -136,10 +148,12 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     <div className="connect-page">
       <div className="container">
         <div className="header">
-          <div className="header-icon">🗄️</div>
+          <div className="header-icon">
+            <Database size={32} />
+          </div>
           <div>
             <h1>Connect to Server</h1>
-            <p>连接到 seekdb、Nero 或其他数据库服务器</p>
+            <p>Connect to seekdb, Nero, or other database servers</p>
           </div>
         </div>
 
@@ -236,7 +250,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
             }`}
             onClick={() => setCurrentConfigTab("main")}
           >
-            ⚙️ Main
+            <Settings size={14} /> Main
           </button>
           <button
             className={`config-tab ${
@@ -244,7 +258,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
             }`}
             onClick={() => setCurrentConfigTab("ssh")}
           >
-            🔐 SSH
+            <KeyRound size={14} /> SSH
           </button>
           <button
             className={`config-tab ${
@@ -252,7 +266,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
             }`}
             onClick={() => setCurrentConfigTab("socks")}
           >
-            🧦 Socks Proxy
+            <Network size={14} /> Socks Proxy
           </button>
           <button
             className={`config-tab ${
@@ -260,7 +274,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
             }`}
             onClick={() => setCurrentConfigTab("http")}
           >
-            🌐 HTTP Proxy
+            <Globe size={14} /> HTTP Proxy
           </button>
         </div>
 
@@ -398,7 +412,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                 <input
                   type="text"
                   id="sshHost"
-                  placeholder="SSH 主机地址"
+                  placeholder="SSH host address"
                   value={formData.sshHost}
                   onChange={(e) => handleInputChange("sshHost", e.target.value)}
                 />
@@ -422,7 +436,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                 <input
                   type="text"
                   id="sshUser"
-                  placeholder="SSH 用户名"
+                  placeholder="SSH username"
                   value={formData.sshUser}
                   onChange={(e) => handleInputChange("sshUser", e.target.value)}
                 />
@@ -432,7 +446,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                 <input
                   type="password"
                   id="sshPassword"
-                  placeholder="SSH 密码或密钥路径"
+                  placeholder="SSH password or key path"
                   value={formData.sshPassword}
                   onChange={(e) =>
                     handleInputChange("sshPassword", e.target.value)
@@ -450,7 +464,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                 <label>Proxy Host</label>
                 <input
                   type="text"
-                  placeholder="代理服务器地址"
+                  placeholder="Proxy server address"
                   value={formData.socksHost}
                   onChange={(e) =>
                     handleInputChange("socksHost", e.target.value)
@@ -495,13 +509,13 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
 
         <div className="action-buttons">
           <button className="btn btn-secondary" onClick={handleSave}>
-            💾 Save
+            <Save size={14} /> Save
           </button>
           <button className="btn btn-success" onClick={handleConnect}>
-            ➕ Connect
+            <PlugZap size={14} /> Connect
           </button>
           <button className="btn btn-secondary" onClick={handleClose}>
-            ✕ Close
+            <X size={14} /> Close
           </button>
         </div>
 
