@@ -11,8 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Play,
-  Save,
-  AlignJustify,
   Search,
   Trash2,
   ArrowUp,
@@ -67,19 +65,19 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
 }) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    null
+    null,
   );
   const [query, setQuery] = useState<string>(
     isSeekDB
       ? "-- Select a collection on the left to view data, or enter a SQL query"
-      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`"
+      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`",
   );
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(["db", "collections"])
+    new Set(["db", "collections"]),
   );
   const [, setRowCount] = useState(0);
   const [executionTime, setExecutionTime] = useState<string>("-");
@@ -90,7 +88,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [embeddingType, setEmbeddingType] = useState<EmbeddingType>("builtin");
   const [vectorSearchLoading, setVectorSearchLoading] = useState(false);
   const [collectionModelName, setCollectionModelName] = useState<string | null>(
-    null
+    null,
   );
   const [searchModelName, setSearchModelName] = useState<string | null>(null);
 
@@ -98,6 +96,11 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      console.log(
+        "[CollectionBrowser] Received message:",
+        message.type,
+        message,
+      );
 
       switch (message.type) {
         case "queryResult":
@@ -110,10 +113,15 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           break;
         case "queryError":
         case "collectionsError":
+          console.error("[CollectionBrowser] Error:", message.data?.error);
           setError(message.data?.error || "Operation failed");
           setLoading(false);
           break;
         case "collectionsList":
+          console.log(
+            "[CollectionBrowser] Received collections:",
+            message.data.collections,
+          );
           setCollections(message.data.collections || []);
           setLoading(false);
           break;
@@ -147,13 +155,20 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   useEffect(() => {
     if (isSeekDB) {
       // seekdb connection: actively request collections list
+      console.log(
+        "[CollectionBrowser] isSeekDB=true, requesting collections...",
+      );
       setLoading(true);
       // Delay to ensure event listener is registered
       setTimeout(() => {
+        console.log("[CollectionBrowser] Sending refreshCollections message");
         vscode.postMessage({ type: "refreshCollections" });
       }, 100);
     } else {
       // Non-seekdb connection: execute initial query
+      console.log(
+        "[CollectionBrowser] isSeekDB=false, executing initial query",
+      );
       setTimeout(() => {
         handleExecuteQuery();
       }, 200);
@@ -249,7 +264,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       if (!searchQuery) return true;
       const searchLower = searchQuery.toLowerCase();
       return Object.values(row).some((value) =>
-        String(value).toLowerCase().includes(searchLower)
+        String(value).toLowerCase().includes(searchLower),
       );
     }) || [];
 
@@ -322,7 +337,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                   <List size={14} className="item-icon" />
                   <span className="item-name">collections</span>
                   <span className="tree-group-count">
-                    {isSeekDB && collections.length === 0
+                    {isSeekDB && loading && collections.length === 0
                       ? "(Loading...)"
                       : `(${collections.length})`}
                   </span>
@@ -331,10 +346,22 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 {/* Collections list */}
                 {expandedNodes.has("collections") && (
                   <div>
-                    {isSeekDB && collections.length === 0 ? (
+                    {isSeekDB && loading && collections.length === 0 ? (
                       <div className="loading" style={{ padding: "16px 28px" }}>
                         <div className="loading-spinner"></div>
                         Loading collections...
+                      </div>
+                    ) : collections.length === 0 ? (
+                      <div
+                        className="empty-state"
+                        style={{
+                          padding: "16px 28px",
+                          fontSize: "12px",
+                          color: "var(--vscode-descriptionForeground)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No collections found
                       </div>
                     ) : (
                       collections.map((collection) => (

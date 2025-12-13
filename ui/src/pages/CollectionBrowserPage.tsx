@@ -18,6 +18,9 @@ const connectionInfo = window.__VSCODE_CONNECTION_INFO__ || {
 
 const isSeekDB = window.__VSCODE_IS_SEEKDB__ || false;
 
+console.log('[CollectionBrowserPage Entry] connectionInfo:', connectionInfo);
+console.log('[CollectionBrowserPage Entry] isSeekDB:', isSeekDB);
+
 const root = createRoot(document.getElementById("root")!);
 root.render(
   <CollectionBrowserPage
