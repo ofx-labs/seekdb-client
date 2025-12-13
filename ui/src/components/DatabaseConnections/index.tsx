@@ -1,32 +1,80 @@
 import React, { useState, useEffect } from "react";
+import {
+  Database,
+  Search,
+  Zap,
+  RefreshCw,
+  List,
+  Square,
+  Play,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  AlertTriangle,
+  XCircle,
+  Info,
+  HardDrive,
+} from "lucide-react";
 import { vscode } from "../../utils/vscode";
 import "./index.css";
 
-const DB_TYPE_ICONS = {
-  seekdb: "🔍",
-  nero: "⚡",
+interface DatabaseConnection {
+  id: string;
+  name: string;
+  type: "seekdb" | "nero" | string;
+  host: string;
+  port: number;
+  database?: string;
+  tenant?: string;
+  connected?: boolean;
+}
+
+interface ServerDatabase {
+  name: string;
+  charset: string;
+  collation: string;
+}
+
+const DB_TYPE_ICONS: { [key: string]: React.ReactNode } = {
+  seekdb: <Search size={16} />,
+  nero: <Zap size={16} />,
 };
+
+interface WarningMessage {
+  type: "error" | "info" | "warning";
+  message: string;
+  timestamp: Date;
+}
 
 /**
  * DatabaseConnections - 侧边栏数据库连接列表组件
  */
 function DatabaseConnections() {
-  const [connections, setConnections] = useState([]);
-  const [expandedGroups, setExpandedGroups] = useState({});
+  const [connections, setConnections] = useState<DatabaseConnection[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 每个连接的服务器数据库列表
-  const [serverDatabases, setServerDatabases] = useState({});
+  const [serverDatabases, setServerDatabases] = useState<{
+    [key: string]: ServerDatabase[];
+  }>({});
   // 加载状态
-  const [loadingDatabases, setLoadingDatabases] = useState({});
+  const [loadingDatabases, setLoadingDatabases] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 展开的连接（显示数据库列表）
-  const [expandedConnections, setExpandedConnections] = useState({});
+  const [expandedConnections, setExpandedConnections] = useState<{
+    [key: string]: boolean;
+  }>({});
   // 警告信息
-  const [warnings, setWarnings] = useState([]);
+  const [warnings, setWarnings] = useState<WarningMessage[]>([]);
   // 显示警告面板
   const [showWarnings, setShowWarnings] = useState(false);
 
   useEffect(() => {
     // 监听来自扩展的消息
-    const handleMessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === "updateDatabaseConnections") {
         setConnections(message.data?.connections || []);
@@ -52,11 +100,11 @@ function DatabaseConnections() {
             [connectionId]: false,
           }));
           // 添加警告
-          setWarnings((prev) => [
+          setWarnings((prev: WarningMessage[]) => [
             ...prev,
             {
               type: "error",
-              message: `加载数据库列表失败: ${error}`,
+              message: `Failed to load database list: ${error}`,
               timestamp: new Date(),
             },
           ]);
@@ -84,35 +132,35 @@ function DatabaseConnections() {
     });
   };
 
-  const handleConnect = (connection) => {
+  const handleConnect = (connection: DatabaseConnection) => {
     vscode.postMessage({
       type: "connectToDatabase",
       data: connection,
     });
   };
 
-  const handleDisconnect = (connectionId) => {
+  const handleDisconnect = (connectionId: string) => {
     vscode.postMessage({
       type: "disconnectDatabase",
       data: { id: connectionId },
     });
   };
 
-  const handleDelete = (connectionId) => {
+  const handleDelete = (connectionId: string) => {
     vscode.postMessage({
       type: "deleteDatabaseConnection",
       data: { id: connectionId },
     });
   };
 
-  const handleViewCollections = (connectionId) => {
+  const handleViewCollections = (connectionId: string) => {
     vscode.postMessage({
       type: "openCollectionBrowser",
       data: { id: connectionId },
     });
   };
 
-  const toggleGroup = (groupName) => {
+  const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
       ...prev,
       [groupName]: !prev[groupName],
@@ -120,21 +168,24 @@ function DatabaseConnections() {
   };
 
   // 切换连接展开状态（显示数据库列表）
-  const toggleConnectionExpand = (connectionId, connection) => {
+  const toggleConnectionExpand = (
+    connectionId: string,
+    connection: DatabaseConnection
+  ) => {
     const isExpanding = !expandedConnections[connectionId];
     setExpandedConnections((prev) => ({
       ...prev,
       [connectionId]: isExpanding,
     }));
 
-    // 如果是 SeekDB 类型且正在展开，加载数据库列表
+    // 如果是 seekdb 类型且正在展开，加载数据库列表
     if (isExpanding && connection.type === "seekdb" && connection.connected) {
       loadServerDatabases(connectionId);
     }
   };
 
   // 加载服务器数据库列表
-  const loadServerDatabases = (connectionId) => {
+  const loadServerDatabases = (connectionId: string) => {
     setLoadingDatabases((prev) => ({
       ...prev,
       [connectionId]: true,
@@ -146,7 +197,7 @@ function DatabaseConnections() {
   };
 
   // 选择数据库
-  const handleSelectDatabase = (connectionId, dbName) => {
+  const handleSelectDatabase = (connectionId: string, dbName: string) => {
     vscode.postMessage({
       type: "selectServerDatabase",
       data: { connectionId, database: dbName },
@@ -154,8 +205,8 @@ function DatabaseConnections() {
   };
 
   // 创建数据库
-  const handleCreateServerDatabase = (connectionId) => {
-    const dbName = prompt("请输入新数据库名称:");
+  const handleCreateServerDatabase = (connectionId: string) => {
+    const dbName = prompt("Enter new database name:");
     if (dbName && dbName.trim()) {
       vscode.postMessage({
         type: "createServerDatabase",
@@ -165,8 +216,12 @@ function DatabaseConnections() {
   };
 
   // 删除数据库
-  const handleDeleteServerDatabase = (connectionId, dbName) => {
-    if (confirm(`确定要删除数据库 "${dbName}" 吗？此操作不可恢复！`)) {
+  const handleDeleteServerDatabase = (connectionId: string, dbName: string) => {
+    if (
+      confirm(
+        `Are you sure you want to delete database "${dbName}"? This action cannot be undone!`
+      )
+    ) {
       vscode.postMessage({
         type: "deleteServerDatabase",
         data: { connectionId, name: dbName },
@@ -177,7 +232,10 @@ function DatabaseConnections() {
   };
 
   // 刷新数据库列表
-  const handleRefreshDatabases = (connectionId, e) => {
+  const handleRefreshDatabases = (
+    connectionId: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     loadServerDatabases(connectionId);
   };
@@ -193,7 +251,10 @@ function DatabaseConnections() {
   const disconnectedList = connections.filter((c) => !c.connected);
 
   // 渲染单个连接项
-  const renderConnectionItem = (connection, isConnected) => {
+  const renderConnectionItem = (
+    connection: DatabaseConnection,
+    isConnected: boolean
+  ) => {
     const isExpanded = expandedConnections[connection.id];
     const databases = serverDatabases[connection.id] || [];
     const isLoading = loadingDatabases[connection.id];
@@ -209,12 +270,18 @@ function DatabaseConnections() {
               : undefined
           }
         >
-          {/* 展开图标 (仅 SeekDB 已连接时显示) */}
+          {/* expand icon (only seekdb connected) */}
           {isConnected && isSeekDB && (
-            <span className="db-expand-icon">{isExpanded ? "▼" : "▶"}</span>
+            <span className="db-expand-icon">
+              {isExpanded ? (
+                <ChevronDown size={12} />
+              ) : (
+                <ChevronRight size={12} />
+              )}
+            </span>
           )}
           <div className="db-connection-icon">
-            {DB_TYPE_ICONS[connection.type] || "🗄️"}
+            {DB_TYPE_ICONS[connection.type] || <Database size={16} />}
           </div>
           <div className="db-connection-info">
             <div className="db-connection-name">{connection.name}</div>
@@ -238,9 +305,9 @@ function DatabaseConnections() {
                   <button
                     className="db-action-btn refresh"
                     onClick={(e) => handleRefreshDatabases(connection.id, e)}
-                    title="刷新数据库列表"
+                    title="Refresh database list"
                   >
-                    🔄
+                    <RefreshCw size={14} />
                   </button>
                 )}
                 <button
@@ -249,9 +316,9 @@ function DatabaseConnections() {
                     e.stopPropagation();
                     handleViewCollections(connection.id);
                   }}
-                  title="查看集合"
+                  title="View collections"
                 >
-                  📋
+                  <List size={14} />
                 </button>
                 <button
                   className="db-action-btn"
@@ -259,9 +326,9 @@ function DatabaseConnections() {
                     e.stopPropagation();
                     handleDisconnect(connection.id);
                   }}
-                  title="断开连接"
+                  title="Disconnect"
                 >
-                  ⏹
+                  <Square size={14} />
                 </button>
               </>
             ) : (
@@ -269,40 +336,40 @@ function DatabaseConnections() {
                 <button
                   className="db-action-btn connect"
                   onClick={() => handleConnect(connection)}
-                  title="连接"
+                  title="Connect"
                 >
-                  ▶
+                  <Play size={14} />
                 </button>
                 <button
                   className="db-action-btn delete"
                   onClick={() => handleDelete(connection.id)}
-                  title="删除"
+                  title="Delete"
                 >
-                  🗑
+                  <Trash2 size={14} />
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* 数据库列表 (仅 SeekDB 已连接且展开时显示) */}
+        {/* databases list (only seekdb connected and expanded) */}
         {isConnected && isSeekDB && isExpanded && (
           <div className="db-databases-list">
             {isLoading ? (
               <div className="db-loading">
                 <span className="db-loading-spinner"></span>
-                加载中...
+                Loading...
               </div>
             ) : databases.length > 0 ? (
               <>
                 <div className="db-databases-header">
-                  <span>数据库 ({databases.length})</span>
+                  <span>Databases ({databases.length})</span>
                   <button
                     className="db-action-btn create"
                     onClick={() => handleCreateServerDatabase(connection.id)}
-                    title="创建数据库"
+                    title="Create database"
                   >
-                    ➕
+                    <Plus size={14} />
                   </button>
                 </div>
                 {databases.map((db) => (
@@ -313,7 +380,7 @@ function DatabaseConnections() {
                     }`}
                     onClick={() => handleSelectDatabase(connection.id, db.name)}
                   >
-                    <span className="db-database-icon">🗃️</span>
+                    <HardDrive size={14} className="db-database-icon" />
                     <span className="db-database-name">{db.name}</span>
                     <span className="db-database-info">
                       {db.charset} / {db.collation}
@@ -324,21 +391,21 @@ function DatabaseConnections() {
                         e.stopPropagation();
                         handleDeleteServerDatabase(connection.id, db.name);
                       }}
-                      title="删除数据库"
+                      title="Delete database"
                     >
-                      🗑
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
               </>
             ) : (
               <div className="db-empty-databases">
-                <p>暂无数据库</p>
+                <p>No databases</p>
                 <button
                   className="db-create-db-btn"
                   onClick={() => handleCreateServerDatabase(connection.id)}
                 >
-                  ➕ 创建数据库
+                  <Plus size={14} /> Create Database
                 </button>
               </div>
             )}
@@ -352,23 +419,25 @@ function DatabaseConnections() {
     <div className="db-connections-container">
       {/* 头部 */}
       <div className="db-connections-header">
-        <h3>🗄️ DATABASE</h3>
+        <h3>
+          <Database size={16} /> DATABASE
+        </h3>
         <div className="db-header-actions">
           {warnings.length > 0 && (
             <button
               className={`db-warnings-btn ${showWarnings ? "active" : ""}`}
               onClick={() => setShowWarnings(!showWarnings)}
-              title={`${warnings.length} 条警告`}
+              title={`${warnings.length} warning(s)`}
             >
-              ⚠️ {warnings.length}
+              <AlertTriangle size={14} /> {warnings.length}
             </button>
           )}
           <button
             className="db-create-btn"
             onClick={handleCreateConnection}
-            title="创建新连接"
+            title="Create new connection"
           >
-            ➕
+            <Plus size={14} />
           </button>
         </div>
       </div>
@@ -377,9 +446,9 @@ function DatabaseConnections() {
       {showWarnings && warnings.length > 0 && (
         <div className="db-warnings-panel">
           <div className="db-warnings-header">
-            <span>警告信息</span>
+            <span>Warnings</span>
             <button className="db-clear-warnings-btn" onClick={clearWarnings}>
-              清除
+              Clear
             </button>
           </div>
           <div className="db-warnings-list">
@@ -389,11 +458,13 @@ function DatabaseConnections() {
                 className={`db-warning-item ${warning.type || "warning"}`}
               >
                 <span className="db-warning-icon">
-                  {warning.type === "error"
-                    ? "❌"
-                    : warning.type === "info"
-                    ? "ℹ️"
-                    : "⚠️"}
+                  {warning.type === "error" ? (
+                    <XCircle size={14} />
+                  ) : warning.type === "info" ? (
+                    <Info size={14} />
+                  ) : (
+                    <AlertTriangle size={14} />
+                  )}
                 </span>
                 <span className="db-warning-message">{warning.message}</span>
                 <span className="db-warning-time">
@@ -408,12 +479,12 @@ function DatabaseConnections() {
       {/* 空状态 */}
       {connections.length === 0 ? (
         <div className="db-empty-state">
-          <p>暂无数据库连接</p>
+          <p>No database connections</p>
           <button
             className="db-create-connection-btn"
             onClick={handleCreateConnection}
           >
-            ➕ Create Connection
+            <Plus size={14} /> Create Connection
           </button>
           <p className="db-hint">
             <a href="#" onClick={handleCreateConnection}>
@@ -423,7 +494,7 @@ function DatabaseConnections() {
         </div>
       ) : (
         <div className="db-connections-list">
-          {/* 已连接的数据库 */}
+          {/* Connected databases */}
           {connectedList.length > 0 && (
             <div className="db-group">
               <div
@@ -431,10 +502,14 @@ function DatabaseConnections() {
                 onClick={() => toggleGroup("connected")}
               >
                 <span className="db-group-icon">
-                  {expandedGroups["connected"] !== false ? "▼" : "▶"}
+                  {expandedGroups["connected"] !== false ? (
+                    <ChevronDown size={12} />
+                  ) : (
+                    <ChevronRight size={12} />
+                  )}
                 </span>
                 <span className="db-group-title">
-                  已连接 ({connectedList.length})
+                  Connected ({connectedList.length})
                 </span>
               </div>
               {expandedGroups["connected"] !== false && (
@@ -455,10 +530,14 @@ function DatabaseConnections() {
                 onClick={() => toggleGroup("disconnected")}
               >
                 <span className="db-group-icon">
-                  {expandedGroups["disconnected"] !== false ? "▼" : "▶"}
+                  {expandedGroups["disconnected"] !== false ? (
+                    <ChevronDown size={12} />
+                  ) : (
+                    <ChevronRight size={12} />
+                  )}
                 </span>
                 <span className="db-group-title">
-                  已保存 ({disconnectedList.length})
+                  Saved ({disconnectedList.length})
                 </span>
               </div>
               {expandedGroups["disconnected"] !== false && (

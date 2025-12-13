@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import DatabaseConnections from "./components/DatabaseConnections";
+import { useState, useEffect, useCallback } from "react";
+import DatabaseConnections from "./components/DatabaseConnections/index";
 
 const App = () => {
   const [currentOpenView, setCurrentOpenView] = useState(
@@ -12,7 +12,7 @@ const App = () => {
     applyVSCodeTheme();
 
     // 添加消息监听
-    const messageListener = (event) => {
+    const messageListener = (event: MessageEvent) => {
       const message = event.data;
       console.log("App接收到消息:", message, new Date().toISOString());
 
@@ -76,7 +76,7 @@ const App = () => {
       {renderMainContent()}
 
       {/* 添加一些基本样式 */}
-      <style jsx="true">{`
+      <style>{`
         .app-container {
           display: flex;
           flex-direction: column;

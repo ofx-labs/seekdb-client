@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/ofx-labs/seekdb-client"
   },
-  "version": "0.0.4",
+  "version": "0.0.5",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -28,25 +28,25 @@
             "international"
           ],
           "default": "china",
-          "description": "HuggingFace 镜像地址"
+          "description": "HuggingFace mirror URL"
         }
       }
     },
     "commands": [
       {
         "command": "seekdb.openDatabase",
-        "title": "数据库管理",
+        "title": "Database Management",
         "icon": "$(database)",
         "category": "seekdb"
       },
       {
         "command": "seekdb.openCollectionBrowser",
-        "title": "打开Collection浏览器",
+        "title": "Open Collection Browser",
         "category": "seekdb"
       },
       {
         "command": "seekdb.openSettings",
-        "title": "打开设置",
+        "title": "Open Settings",
         "icon": "$(settings-gear)",
         "category": "seekdb"
       }
@@ -90,7 +90,7 @@
     "webview:dev": "cd ui && npm run start",
     "webview:watch": "cd ui && npm run watch",
     "webview:build": "cd ui && npm run build",
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run webview:build && npm run compile",
     "vscode:package": "npx vsce package",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
