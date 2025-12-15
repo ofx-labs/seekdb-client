@@ -60,24 +60,28 @@ declare global {
 
 const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   vscode,
-  connectionInfo,
+  connectionInfo: initialConnectionInfo,
   isSeekDB,
 }) => {
+  // 使用 state 管理 connectionInfo，支持动态更新
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>(
+    initialConnectionInfo
+  );
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    null,
+    null
   );
   const [query, setQuery] = useState<string>(
     isSeekDB
       ? "-- Select a collection on the left to view data, or enter a SQL query"
-      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`",
+      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`"
   );
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(["db", "collections"]),
+    new Set(["db", "collections"])
   );
   const [, setRowCount] = useState(0);
   const [executionTime, setExecutionTime] = useState<string>("-");
@@ -88,7 +92,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [embeddingType, setEmbeddingType] = useState<EmbeddingType>("builtin");
   const [vectorSearchLoading, setVectorSearchLoading] = useState(false);
   const [collectionModelName, setCollectionModelName] = useState<string | null>(
-    null,
+    null
   );
   const [searchModelName, setSearchModelName] = useState<string | null>(null);
 
@@ -99,7 +103,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       console.log(
         "[CollectionBrowser] Received message:",
         message.type,
-        message,
+        message
       );
 
       switch (message.type) {
@@ -120,7 +124,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
         case "collectionsList":
           console.log(
             "[CollectionBrowser] Received collections:",
-            message.data.collections,
+            message.data.collections
           );
           setCollections(message.data.collections || []);
           setLoading(false);
@@ -144,6 +148,17 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           setError(message.data?.error || "Vector search failed");
           setVectorSearchLoading(false);
           break;
+        case "connectionInfoUpdated":
+          // 数据库切换时更新 connectionInfo
+          console.log(
+            "[CollectionBrowser] Connection info updated:",
+            message.data
+          );
+          setConnectionInfo(message.data);
+          // 清空当前选中的 collection
+          setSelectedCollection(null);
+          setQueryResult(null);
+          break;
       }
     };
 
@@ -156,7 +171,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     if (isSeekDB) {
       // seekdb connection: actively request collections list
       console.log(
-        "[CollectionBrowser] isSeekDB=true, requesting collections...",
+        "[CollectionBrowser] isSeekDB=true, requesting collections..."
       );
       setLoading(true);
       // Delay to ensure event listener is registered
@@ -167,7 +182,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     } else {
       // Non-seekdb connection: execute initial query
       console.log(
-        "[CollectionBrowser] isSeekDB=false, executing initial query",
+        "[CollectionBrowser] isSeekDB=false, executing initial query"
       );
       setTimeout(() => {
         handleExecuteQuery();
@@ -264,7 +279,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       if (!searchQuery) return true;
       const searchLower = searchQuery.toLowerCase();
       return Object.values(row).some((value) =>
-        String(value).toLowerCase().includes(searchLower),
+        String(value).toLowerCase().includes(searchLower)
       );
     }) || [];
 

@@ -808,10 +808,14 @@ export class DatabaseProvider {
 
     // If it's a SeekDB connection, load real collections list immediately
     if (this.isSeekDBConnection(connection)) {
-      console.log('[DatabaseProvider] openCollectionBrowser: isSeekDB, will refresh collections in 100ms');
+      console.log(
+        "[DatabaseProvider] openCollectionBrowser: isSeekDB, will refresh collections in 100ms"
+      );
       // Delay a bit to ensure webview is fully loaded
       setTimeout(async () => {
-        console.log('[DatabaseProvider] openCollectionBrowser: calling refreshCollections now');
+        console.log(
+          "[DatabaseProvider] openCollectionBrowser: calling refreshCollections now"
+        );
         await this.refreshCollections(panel, connection);
         // If collectionName is specified, load that collection's data
         if (collectionName) {
@@ -824,7 +828,9 @@ export class DatabaseProvider {
         }
       }, 100);
     } else {
-      console.log('[DatabaseProvider] openCollectionBrowser: not SeekDB, skipping initial refresh');
+      console.log(
+        "[DatabaseProvider] openCollectionBrowser: not SeekDB, skipping initial refresh"
+      );
     }
   }
 
@@ -874,7 +880,10 @@ export class DatabaseProvider {
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection
   ): Promise<void> {
-    console.log('[DatabaseProvider] handleCollectionBrowserMessage:', message.type);
+    console.log(
+      "[DatabaseProvider] handleCollectionBrowserMessage:",
+      message.type
+    );
     switch (message.type) {
       case "executeQuery":
         await this.executeQuery(message.data.sql, panel, connection);
@@ -887,7 +896,7 @@ export class DatabaseProvider {
         );
         break;
       case "refreshCollections":
-        console.log('[DatabaseProvider] Handling refreshCollections');
+        console.log("[DatabaseProvider] Handling refreshCollections");
         await this.refreshCollections(panel, connection);
         break;
       case "loadDatabases":
@@ -964,6 +973,17 @@ export class DatabaseProvider {
         this.seekdbClients.set(connection.id, clients);
       }
 
+      // 发送更新后的 connectionInfo 给 panel
+      panel.webview.postMessage({
+        type: "connectionInfoUpdated",
+        data: {
+          name: connection.name,
+          host: connection.host,
+          port: connection.port,
+          database: dbName,
+        },
+      });
+
       // Refresh collections list
       await this.refreshCollections(panel, connection);
       this.addWarning("info", `Switched to database: ${dbName}`);
@@ -1000,6 +1020,16 @@ export class DatabaseProvider {
       // If this connection has an open Collection Browser panel, refresh collections list
       const existingPanel = this.collectionPanels.get(connectionId);
       if (existingPanel) {
+        // 发送更新后的 connectionInfo 给 panel
+        existingPanel.webview.postMessage({
+          type: "connectionInfoUpdated",
+          data: {
+            name: connection.name,
+            host: connection.host,
+            port: connection.port,
+            database: dbName,
+          },
+        });
         await this.refreshCollections(existingPanel, connection);
       }
     }
@@ -1246,20 +1276,26 @@ export class DatabaseProvider {
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection
   ): Promise<void> {
-    console.log('[DatabaseProvider] refreshCollections called, isSeekDB:', this.isSeekDBConnection(connection));
+    console.log(
+      "[DatabaseProvider] refreshCollections called, isSeekDB:",
+      this.isSeekDBConnection(connection)
+    );
     if (this.isSeekDBConnection(connection)) {
       try {
-        console.log('[DatabaseProvider] Getting SeekDB collections...');
+        console.log("[DatabaseProvider] Getting SeekDB collections...");
         const collections = await this.getSeekDBCollections(connection);
-        console.log('[DatabaseProvider] Got collections:', collections.length);
+        console.log("[DatabaseProvider] Got collections:", collections.length);
         panel.webview.postMessage({
           type: "collectionsList",
           data: { collections },
         });
-        console.log('[DatabaseProvider] Sent collectionsList message');
+        console.log("[DatabaseProvider] Sent collectionsList message");
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('[DatabaseProvider] Error getting collections:', errorMsg);
+        console.error(
+          "[DatabaseProvider] Error getting collections:",
+          errorMsg
+        );
         this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
         panel.webview.postMessage({
           type: "collectionsError",
@@ -1268,7 +1304,7 @@ export class DatabaseProvider {
       }
     } else {
       // Non-SeekDB type, use mock data
-      console.log('[DatabaseProvider] Using mock collections');
+      console.log("[DatabaseProvider] Using mock collections");
       const mockCollections = this.getMockCollections();
       panel.webview.postMessage({
         type: "collectionsList",
