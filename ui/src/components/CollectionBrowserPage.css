@@ -556,3 +556,98 @@ body {
 .btn-success:hover:not(:disabled) {
   background: #218838;
 }
+
+/* 保存查询对话框 */
+.save-query-dialog {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.save-query-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--input-fg);
+  font-size: 13px;
+}
+
+.save-query-input:focus {
+  outline: none;
+  border-color: var(--button-bg);
+}
+
+.btn-sm {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+}
+
+/* 保存的查询项样式 */
+.saved-query-item {
+  position: relative;
+}
+
+.saved-query-item .query-icon {
+  color: var(--success-color);
+}
+
+.saved-query-item .query-item-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.saved-query-item:hover .query-item-actions {
+  display: flex;
+}
+
+.query-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.query-action-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.query-action-btn.delete:hover {
+  color: var(--danger-color);
+}
+
+/* 编辑查询名称容器 */
+.query-edit-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.query-edit-input {
+  flex: 1;
+  padding: 2px 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--button-bg);
+  border-radius: 2px;
+  color: var(--input-fg);
+  font-size: 12px;
+  min-width: 80px;
+}
+
+.query-edit-input:focus {
+  outline: none;
+}

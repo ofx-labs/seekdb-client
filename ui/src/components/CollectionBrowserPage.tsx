@@ -19,6 +19,10 @@ import {
   BarChart3,
   Clock,
   Sparkles,
+  Save,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import "./CollectionBrowserPage.css";
 
@@ -49,6 +53,15 @@ interface QueryResult {
   rows: Record<string, any>[];
   rowCount: number;
   executionTime?: string;
+}
+
+/** 保存的查询接口 */
+interface SavedQuery {
+  id: string;
+  name: string;
+  sql: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 declare global {
@@ -95,6 +108,13 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     null
   );
   const [searchModelName, setSearchModelName] = useState<string | null>(null);
+
+  // 保存的查询相关状态
+  const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
+  const [editingQueryId, setEditingQueryId] = useState<string | null>(null);
+  const [editingQueryName, setEditingQueryName] = useState("");
+  const [saveQueryName, setSaveQueryName] = useState("");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // Listen for messages from extension
   useEffect(() => {
@@ -159,6 +179,36 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           setSelectedCollection(null);
           setQueryResult(null);
           break;
+        case "savedQueriesList":
+          // 收到已保存的查询列表
+          console.log(
+            "[CollectionBrowser] Saved queries:",
+            message.data.queries
+          );
+          setSavedQueries(message.data.queries || []);
+          break;
+        case "querySaved":
+          // 查询保存成功
+          console.log("[CollectionBrowser] Query saved:", message.data);
+          setShowSaveDialog(false);
+          setSaveQueryName("");
+          // 刷新查询列表
+          vscode.postMessage({ type: "getSavedQueries" });
+          break;
+        case "queryDeleted":
+          // 查询删除成功
+          console.log("[CollectionBrowser] Query deleted:", message.data);
+          // 刷新查询列表
+          vscode.postMessage({ type: "getSavedQueries" });
+          break;
+        case "queryUpdated":
+          // 查询更新成功
+          console.log("[CollectionBrowser] Query updated:", message.data);
+          setEditingQueryId(null);
+          setEditingQueryName("");
+          // 刷新查询列表
+          vscode.postMessage({ type: "getSavedQueries" });
+          break;
       }
     };
 
@@ -166,8 +216,13 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  // Initialize: actively request collections list
+  // Initialize: actively request collections list and saved queries
   useEffect(() => {
+    // 请求已保存的查询列表
+    setTimeout(() => {
+      vscode.postMessage({ type: "getSavedQueries" });
+    }, 50);
+
     if (isSeekDB) {
       // seekdb connection: actively request collections list
       console.log(
@@ -240,6 +295,86 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
+  // 保存当前查询
+  const handleSaveQuery = () => {
+    const sql = query.trim();
+    if (!sql || sql.startsWith("--")) {
+      setError("Please enter a valid SQL query before saving");
+      return;
+    }
+    setShowSaveDialog(true);
+    setSaveQueryName("");
+  };
+
+  // 确认保存查询
+  const handleConfirmSaveQuery = () => {
+    const name = saveQueryName.trim();
+    if (!name) {
+      setError("Please enter a name for the query");
+      return;
+    }
+    vscode.postMessage({
+      type: "saveQuery",
+      data: { name, sql: query.trim() },
+    });
+  };
+
+  // 取消保存
+  const handleCancelSaveQuery = () => {
+    setShowSaveDialog(false);
+    setSaveQueryName("");
+  };
+
+  // 加载保存的查询
+  const handleLoadSavedQuery = (savedQuery: SavedQuery) => {
+    setQuery(savedQuery.sql);
+    setSelectedCollection(null);
+  };
+
+  // 开始编辑查询名称
+  const handleStartEditQuery = (
+    savedQuery: SavedQuery,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    setEditingQueryId(savedQuery.id);
+    setEditingQueryName(savedQuery.name);
+  };
+
+  // 确认编辑查询名称
+  const handleConfirmEditQuery = (
+    savedQuery: SavedQuery,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    const name = editingQueryName.trim();
+    if (!name) {
+      setEditingQueryId(null);
+      setEditingQueryName("");
+      return;
+    }
+    vscode.postMessage({
+      type: "updateQuery",
+      data: { id: savedQuery.id, name },
+    });
+  };
+
+  // 取消编辑
+  const handleCancelEditQuery = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingQueryId(null);
+    setEditingQueryName("");
+  };
+
+  // 删除保存的查询
+  const handleDeleteSavedQuery = (queryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    vscode.postMessage({
+      type: "deleteQuery",
+      data: { id: queryId },
+    });
+  };
+
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {
       const newSet = new Set(prev);
@@ -297,12 +432,12 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
               <button title="Refresh" onClick={handleRefreshCollections}>
                 <RefreshCw size={14} />
               </button>
-              <button title="New query">
+              {/* <button title="New query">
                 <Plus size={14} />
               </button>
               <button title="Settings">
                 <Settings size={14} />
-              </button>
+              </button> */}
             </div>
           </div>
           <div className="tree-container">
@@ -327,14 +462,128 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
 
             {expandedNodes.has("db") && (
               <>
-                {/* Query node */}
-                <div className="tree-item level-1">
+                {/* Query node - 可展开显示保存的查询 */}
+                <div
+                  className="tree-item level-1"
+                  onClick={() => toggleNode("queries")}
+                  style={{ cursor: "pointer" }}
+                >
                   <span className="expand-icon">
-                    <ChevronRight size={12} />
+                    {expandedNodes.has("queries") ? (
+                      <ChevronDown size={12} />
+                    ) : (
+                      <ChevronRight size={12} />
+                    )}
                   </span>
                   <FileText size={14} className="item-icon" />
-                  <span className="item-name">query</span>
+                  <span className="item-name">queries</span>
+                  <span className="tree-group-count">
+                    ({savedQueries.length})
+                  </span>
                 </div>
+
+                {/* Saved queries list */}
+                {expandedNodes.has("queries") && (
+                  <div>
+                    {savedQueries.length === 0 ? (
+                      <div
+                        className="empty-state"
+                        style={{
+                          padding: "8px 40px",
+                          fontSize: "12px",
+                          color: "var(--vscode-descriptionForeground)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No saved queries
+                      </div>
+                    ) : (
+                      savedQueries.map((savedQuery) => (
+                        <div
+                          key={savedQuery.id}
+                          className="tree-item level-2 saved-query-item"
+                          onClick={() => handleLoadSavedQuery(savedQuery)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <span className="expand-icon">
+                            <ChevronRight size={12} />
+                          </span>
+                          <File size={14} className="item-icon query-icon" />
+                          {editingQueryId === savedQuery.id ? (
+                            <div
+                              className="query-edit-container"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                className="query-edit-input"
+                                value={editingQueryName}
+                                onChange={(e) =>
+                                  setEditingQueryName(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter")
+                                    handleConfirmEditQuery(
+                                      savedQuery,
+                                      e as any
+                                    );
+                                  if (e.key === "Escape")
+                                    handleCancelEditQuery(e as any);
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                className="query-action-btn"
+                                onClick={(e) =>
+                                  handleConfirmEditQuery(savedQuery, e)
+                                }
+                                title="Save"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                className="query-action-btn"
+                                onClick={handleCancelEditQuery}
+                                title="Cancel"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span
+                                className="item-name"
+                                title={savedQuery.sql}
+                              >
+                                {savedQuery.name}
+                              </span>
+                              <div className="query-item-actions">
+                                <button
+                                  className="query-action-btn"
+                                  onClick={(e) =>
+                                    handleStartEditQuery(savedQuery, e)
+                                  }
+                                  title="Rename"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                                <button
+                                  className="query-action-btn delete"
+                                  onClick={(e) =>
+                                    handleDeleteSavedQuery(savedQuery.id, e)
+                                  }
+                                  title="Delete"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
 
                 {/* Collections node */}
                 <div
@@ -419,13 +668,39 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
               <button className="btn btn-primary" onClick={handleExecuteQuery}>
                 <Play size={14} /> Execute
               </button>
-              {/* <button className="btn btn-secondary">
+              <button className="btn btn-secondary" onClick={handleSaveQuery}>
                 <Save size={14} /> Save
               </button>
-              <button className="btn btn-secondary">
-                <AlignJustify size={14} /> Format
-              </button> */}
             </div>
+            {/* 保存查询对话框 */}
+            {showSaveDialog && (
+              <div className="save-query-dialog">
+                <input
+                  type="text"
+                  className="save-query-input"
+                  placeholder="Enter query name..."
+                  value={saveQueryName}
+                  onChange={(e) => setSaveQueryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConfirmSaveQuery();
+                    if (e.key === "Escape") handleCancelSaveQuery();
+                  }}
+                  autoFocus
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleConfirmSaveQuery}
+                >
+                  <Check size={12} />
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleCancelSaveQuery}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Vector Similarity Search - Only for seekdb */}

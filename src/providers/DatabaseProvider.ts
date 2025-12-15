@@ -82,6 +82,17 @@ interface WarningMessage {
 }
 
 /**
+ * Saved query interface
+ */
+interface SavedQuery {
+  id: string;
+  name: string;
+  sql: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
  * DatabaseProvider - Manages database connection WebviewPanel
  */
 export class DatabaseProvider {
@@ -923,6 +934,18 @@ export class DatabaseProvider {
         break;
       case "vectorSearch":
         await this.handleVectorSearch(message.data, panel, connection);
+        break;
+      case "getSavedQueries":
+        await this.handleGetSavedQueries(panel, connection);
+        break;
+      case "saveQuery":
+        await this.handleSaveQuery(message.data, panel, connection);
+        break;
+      case "updateQuery":
+        await this.handleUpdateQuery(message.data, panel, connection);
+        break;
+      case "deleteQuery":
+        await this.handleDeleteQuery(message.data, panel, connection);
         break;
     }
   }
@@ -1889,5 +1912,113 @@ export class DatabaseProvider {
     };
 
     return this.htmlLoader.loadPage(webview, "ConnectPage", config);
+  }
+
+  /**
+   * Get storage key for saved queries
+   */
+  private getSavedQueriesKey(connectionId: string): string {
+    return `savedQueries_${connectionId}`;
+  }
+
+  /**
+   * Get saved queries for a connection
+   */
+  private getSavedQueries(connectionId: string): SavedQuery[] {
+    const key = this.getSavedQueriesKey(connectionId);
+    return this.context.globalState.get<SavedQuery[]>(key, []);
+  }
+
+  /**
+   * Save queries for a connection
+   */
+  private saveSavedQueries(connectionId: string, queries: SavedQuery[]): void {
+    const key = this.getSavedQueriesKey(connectionId);
+    this.context.globalState.update(key, queries);
+  }
+
+  /**
+   * Handle get saved queries
+   */
+  private async handleGetSavedQueries(
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    panel.webview.postMessage({
+      type: "savedQueriesList",
+      data: { queries },
+    });
+  }
+
+  /**
+   * Handle save query
+   */
+  private async handleSaveQuery(
+    data: { name: string; sql: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const now = Date.now();
+    const newQuery: SavedQuery = {
+      id: `query_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      name: data.name,
+      sql: data.sql,
+      createdAt: now,
+      updatedAt: now,
+    };
+    queries.push(newQuery);
+    this.saveSavedQueries(connection.id, queries);
+
+    panel.webview.postMessage({
+      type: "querySaved",
+      data: newQuery,
+    });
+  }
+
+  /**
+   * Handle update query
+   */
+  private async handleUpdateQuery(
+    data: { id: string; name?: string; sql?: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const index = queries.findIndex((q) => q.id === data.id);
+    if (index >= 0) {
+      if (data.name !== undefined) {
+        queries[index].name = data.name;
+      }
+      if (data.sql !== undefined) {
+        queries[index].sql = data.sql;
+      }
+      queries[index].updatedAt = Date.now();
+      this.saveSavedQueries(connection.id, queries);
+
+      panel.webview.postMessage({
+        type: "queryUpdated",
+        data: queries[index],
+      });
+    }
+  }
+
+  /**
+   * Handle delete query
+   */
+  private async handleDeleteQuery(
+    data: { id: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const filteredQueries = queries.filter((q) => q.id !== data.id);
+    this.saveSavedQueries(connection.id, filteredQueries);
+
+    panel.webview.postMessage({
+      type: "queryDeleted",
+      data: { id: data.id },
+    });
   }
 }
