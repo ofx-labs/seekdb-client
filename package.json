@@ -45,6 +45,12 @@
         "category": "seekdb"
       },
       {
+        "command": "seekdb.openDocs",
+        "title": "Open Documentation",
+        "icon": "$(book)",
+        "category": "seekdb"
+      },
+      {
         "command": "seekdb.openSettings",
         "title": "Open Settings",
         "icon": "$(settings-gear)",
@@ -57,6 +63,11 @@
           "command": "seekdb.openDatabase",
           "when": "view == seekdb.webviewProvider",
           "group": "navigation@3.5"
+        },
+        {
+          "command": "seekdb.openDocs",
+          "when": "view == seekdb.webviewProvider",
+          "group": "navigation@3.55"
         },
         {
           "command": "seekdb.openSettings",
