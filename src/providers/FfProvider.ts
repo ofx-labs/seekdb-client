@@ -4,10 +4,20 @@ import { DatabaseProvider } from "./DatabaseProvider";
 export class FfProvider implements vscode.WebviewViewProvider {
   private webviewView?: vscode.WebviewView; // 添加WebView视图引用
   private databaseProvider: DatabaseProvider; // 添加DatabaseProvider引用
+  // 保存上一次的已连接数据库ID集合，用于检测新连接
+  private previousConnectedIds: Set<string> = new Set();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // 初始化DatabaseProvider
     this.databaseProvider = new DatabaseProvider(this.context);
+
+    // 初始化已连接数据库ID集合
+    const initialConnections = this.databaseProvider.getConnections();
+    initialConnections.forEach((conn) => {
+      if (conn.connected) {
+        this.previousConnectedIds.add(conn.id);
+      }
+    });
 
     // 监听数据库连接变化，更新侧边栏
     this.databaseProvider.onConnectionsChanged((connections) => {
@@ -17,6 +27,24 @@ export class FfProvider implements vscode.WebviewViewProvider {
           data: { connections },
         });
       }
+
+      // 检测新连接成功的数据库，自动打开集合浏览器
+      const currentConnectedIds = new Set<string>();
+      connections.forEach((conn) => {
+        if (conn.connected) {
+          currentConnectedIds.add(conn.id);
+          // 如果是新连接的数据库（之前未连接），自动打开集合浏览器
+          if (!this.previousConnectedIds.has(conn.id)) {
+            // 延迟一点以确保连接完全建立
+            setTimeout(() => {
+              this.openCollectionBrowser(conn.id);
+            }, 100);
+          }
+        }
+      });
+
+      // 更新已连接数据库ID集合
+      this.previousConnectedIds = currentConnectedIds;
     });
   }
 
@@ -29,6 +57,26 @@ export class FfProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtmlContent(webviewView);
 
     this.setWebviewEventListeners(webviewView);
+
+    // 首次加载时，如果有已连接的数据库，自动打开集合浏览器
+    this.autoOpenCollectionBrowserForConnected();
+  }
+
+  /**
+   * 自动为已连接的数据库打开集合浏览器
+   * 用于首次加载时检测已连接的数据库
+   */
+  private autoOpenCollectionBrowserForConnected(): void {
+    const connections = this.databaseProvider.getConnections();
+    const connectedDatabases = connections.filter((conn) => conn.connected);
+
+    if (connectedDatabases.length > 0) {
+      // 如果有已连接的数据库，打开第一个的集合浏览器
+      // 延迟执行以确保 webview 完全加载
+      setTimeout(() => {
+        this.openCollectionBrowser(connectedDatabases[0].id);
+      }, 200);
+    }
   }
 
   /**
@@ -296,11 +344,15 @@ export class FfProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand("seekdb.webviewProvider.focus");
         }
       } else {
-        vscode.window.showErrorMessage("无法打开数据库管理，WebView未初始化");
+        vscode.window.showErrorMessage(
+          "Failed to open database management, WebView not initialized"
+        );
       }
     } catch (error) {
-      console.error("打开数据库管理时出错:", error);
-      vscode.window.showErrorMessage(`无法打开数据库管理: ${error}`);
+      console.error("Error opening database management:", error);
+      vscode.window.showErrorMessage(
+        `Failed to open database management: ${error}`
+      );
     }
   }
 
@@ -308,12 +360,13 @@ export class FfProvider implements vscode.WebviewViewProvider {
    * 打开数据库连接页面（新tab）
    */
   public openDatabaseConnectPage(): void {
-    console.log("openDatabaseConnectPage - 打开新tab");
     try {
       this.databaseProvider.openConnectPage();
     } catch (error) {
-      console.error("打开数据库连接页面时出错:", error);
-      vscode.window.showErrorMessage(`无法打开数据库连接页面: ${error}`);
+      console.error("Error opening database connection page:", error);
+      vscode.window.showErrorMessage(
+        `Failed to open database connection page: ${error}`
+      );
     }
   }
 
@@ -390,10 +443,10 @@ export class FfProvider implements vscode.WebviewViewProvider {
         data: { connections: this.getDatabaseConnections() },
       });
 
-      vscode.window.showInformationMessage(`已切换到数据库: ${database}`);
+      vscode.window.showInformationMessage(`Switched to database: ${database}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`切换数据库失败: ${errorMsg}`);
+      vscode.window.showErrorMessage(`Failed to switch database: ${errorMsg}`);
     }
   }
 
@@ -412,7 +465,7 @@ export class FfProvider implements vscode.WebviewViewProvider {
       await this.handleGetServerDatabases(connectionId, webviewView);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`创建数据库失败: ${errorMsg}`);
+      vscode.window.showErrorMessage(`Failed to create database: ${errorMsg}`);
     }
   }
 
@@ -431,7 +484,7 @@ export class FfProvider implements vscode.WebviewViewProvider {
       await this.handleGetServerDatabases(connectionId, webviewView);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`删除数据库失败: ${errorMsg}`);
+      vscode.window.showErrorMessage(`Failed to delete database: ${errorMsg}`);
     }
   }
 
