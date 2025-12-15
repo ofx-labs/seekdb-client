@@ -17,6 +17,7 @@ import {
   HardDrive,
 } from "lucide-react";
 import { vscode } from "../../utils/vscode";
+import DatabaseModal, { ModalMode } from "../DatabaseModal";
 import "./index.css";
 
 interface DatabaseConnection {
@@ -47,6 +48,14 @@ interface WarningMessage {
   timestamp: Date;
 }
 
+/** Modal 状态接口 */
+interface ModalState {
+  isOpen: boolean;
+  mode: ModalMode;
+  connectionId: string;
+  databaseName: string;
+}
+
 /**
  * DatabaseConnections - 侧边栏数据库连接列表组件
  */
@@ -71,6 +80,15 @@ function DatabaseConnections() {
   const [warnings, setWarnings] = useState<WarningMessage[]>([]);
   // 显示警告面板
   const [showWarnings, setShowWarnings] = useState(false);
+  // Modal 状态
+  const [modalState, setModalState] = useState<ModalState>({
+    isOpen: false,
+    mode: "create",
+    connectionId: "",
+    databaseName: "",
+  });
+  // Modal 加载状态
+  const [modalLoading, setModalLoading] = useState(false);
 
   useEffect(() => {
     // 监听来自扩展的消息
@@ -111,6 +129,26 @@ function DatabaseConnections() {
         }
       } else if (message.type === "updateWarnings") {
         setWarnings(message.data?.warnings || []);
+      } else if (message.type === "databaseCreated") {
+        // 数据库创建成功
+        setModalLoading(false);
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+      } else if (message.type === "databaseDeleted") {
+        // 数据库删除成功
+        setModalLoading(false);
+        setModalState((prev) => ({ ...prev, isOpen: false }));
+      } else if (message.type === "databaseError") {
+        // 数据库操作失败
+        setModalLoading(false);
+        // 添加警告
+        setWarnings((prev: WarningMessage[]) => [
+          ...prev,
+          {
+            type: "error",
+            message: message.data?.error || "Database operation failed",
+            timestamp: new Date(),
+          },
+        ]);
       }
     };
 
@@ -204,30 +242,54 @@ function DatabaseConnections() {
     });
   };
 
-  // 创建数据库
+  // 打开创建数据库 Modal
   const handleCreateServerDatabase = (connectionId: string) => {
-    const dbName = prompt("Enter new database name:");
-    if (dbName && dbName.trim()) {
+    setModalState({
+      isOpen: true,
+      mode: "create",
+      connectionId,
+      databaseName: "",
+    });
+  };
+
+  // 打开删除数据库 Modal
+  const handleDeleteServerDatabase = (connectionId: string, dbName: string) => {
+    setModalState({
+      isOpen: true,
+      mode: "delete",
+      connectionId,
+      databaseName: dbName,
+    });
+  };
+
+  // Modal 确认操作
+  const handleModalConfirm = (name?: string) => {
+    if (modalState.mode === "create" && name) {
+      setModalLoading(true);
       vscode.postMessage({
         type: "createServerDatabase",
-        data: { connectionId, name: dbName.trim() },
+        data: { connectionId: modalState.connectionId, name },
       });
+      // 延迟刷新数据库列表
+      setTimeout(() => loadServerDatabases(modalState.connectionId), 500);
+    } else if (modalState.mode === "delete") {
+      setModalLoading(true);
+      vscode.postMessage({
+        type: "deleteServerDatabase",
+        data: {
+          connectionId: modalState.connectionId,
+          name: modalState.databaseName,
+        },
+      });
+      // 延迟刷新数据库列表
+      setTimeout(() => loadServerDatabases(modalState.connectionId), 500);
     }
   };
 
-  // 删除数据库
-  const handleDeleteServerDatabase = (connectionId: string, dbName: string) => {
-    if (
-      confirm(
-        `Are you sure you want to delete database "${dbName}"? This action cannot be undone!`
-      )
-    ) {
-      vscode.postMessage({
-        type: "deleteServerDatabase",
-        data: { connectionId, name: dbName },
-      });
-      // 刷新数据库列表
-      setTimeout(() => loadServerDatabases(connectionId), 500);
+  // Modal 取消操作
+  const handleModalCancel = () => {
+    if (!modalLoading) {
+      setModalState((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
@@ -551,6 +613,16 @@ function DatabaseConnections() {
           )}
         </div>
       )}
+
+      {/* 数据库新增/删除 Modal */}
+      <DatabaseModal
+        isOpen={modalState.isOpen}
+        mode={modalState.mode}
+        databaseName={modalState.databaseName}
+        onConfirm={handleModalConfirm}
+        onCancel={handleModalCancel}
+        loading={modalLoading}
+      />
     </div>
   );
 }

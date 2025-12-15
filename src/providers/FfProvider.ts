@@ -461,10 +461,21 @@ export class FfProvider implements vscode.WebviewViewProvider {
     try {
       await this.databaseProvider.createServerDatabase(connectionId, name);
 
+      // 发送成功消息给前端
+      webviewView.webview.postMessage({
+        type: "databaseCreated",
+        data: { connectionId, name },
+      });
+
       // 刷新数据库列表
       await this.handleGetServerDatabases(connectionId, webviewView);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      // 发送错误消息给前端
+      webviewView.webview.postMessage({
+        type: "databaseError",
+        data: { connectionId, error: errorMsg, operation: "create" },
+      });
       vscode.window.showErrorMessage(`Failed to create database: ${errorMsg}`);
     }
   }
@@ -480,10 +491,21 @@ export class FfProvider implements vscode.WebviewViewProvider {
     try {
       await this.databaseProvider.deleteServerDatabase(connectionId, name);
 
+      // 发送成功消息给前端
+      webviewView.webview.postMessage({
+        type: "databaseDeleted",
+        data: { connectionId, name },
+      });
+
       // 刷新数据库列表
       await this.handleGetServerDatabases(connectionId, webviewView);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      // 发送错误消息给前端
+      webviewView.webview.postMessage({
+        type: "databaseError",
+        data: { connectionId, error: errorMsg, operation: "delete" },
+      });
       vscode.window.showErrorMessage(`Failed to delete database: ${errorMsg}`);
     }
   }
