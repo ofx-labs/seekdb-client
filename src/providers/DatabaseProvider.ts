@@ -82,6 +82,17 @@ interface WarningMessage {
 }
 
 /**
+ * Saved query interface
+ */
+interface SavedQuery {
+  id: string;
+  name: string;
+  sql: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
  * DatabaseProvider - Manages database connection WebviewPanel
  */
 export class DatabaseProvider {
@@ -142,6 +153,36 @@ export class DatabaseProvider {
    */
   private getSeekDBClient(connectionId: string): SeekDBClient | undefined {
     return this.seekdbClients.get(connectionId)?.client;
+  }
+
+  /**
+   * Create an EmbeddingFunction adapter from the project's EmbeddingService
+   * This adapts our EmbeddingService interface to SeekDB's IEmbeddingFunction interface
+   */
+  private createEmbeddingFunctionAdapter(): {
+    name: string;
+    generate: (texts: string[]) => Promise<number[][]>;
+    getConfig: () => Record<string, any>;
+  } | null {
+    const embeddingService = this.embeddingService;
+    if (!embeddingService) {
+      return null;
+    }
+
+    return {
+      name: embeddingService.getModelName(),
+      generate: async (texts: string[]): Promise<number[][]> => {
+        const embeddings: number[][] = [];
+        for (const text of texts) {
+          const embedding = await embeddingService.embed(text);
+          embeddings.push(embedding);
+        }
+        return embeddings;
+      },
+      getConfig: () => ({
+        modelName: embeddingService.getModelName(),
+      }),
+    };
   }
 
   /**
@@ -808,8 +849,14 @@ export class DatabaseProvider {
 
     // If it's a SeekDB connection, load real collections list immediately
     if (this.isSeekDBConnection(connection)) {
+      console.log(
+        "[DatabaseProvider] openCollectionBrowser: isSeekDB, will refresh collections in 100ms"
+      );
       // Delay a bit to ensure webview is fully loaded
       setTimeout(async () => {
+        console.log(
+          "[DatabaseProvider] openCollectionBrowser: calling refreshCollections now"
+        );
         await this.refreshCollections(panel, connection);
         // If collectionName is specified, load that collection's data
         if (collectionName) {
@@ -821,6 +868,10 @@ export class DatabaseProvider {
           }, 300);
         }
       }, 100);
+    } else {
+      console.log(
+        "[DatabaseProvider] openCollectionBrowser: not SeekDB, skipping initial refresh"
+      );
     }
   }
 
@@ -870,45 +921,117 @@ export class DatabaseProvider {
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection
   ): Promise<void> {
-    switch (message.type) {
-      case "executeQuery":
-        await this.executeQuery(message.data.sql, panel, connection);
-        break;
-      case "loadCollectionData":
-        await this.loadCollectionData(
-          message.data.collectionName,
-          panel,
-          connection
-        );
-        break;
-      case "refreshCollections":
-        await this.refreshCollections(panel, connection);
-        break;
-      case "loadDatabases":
-        await this.handleLoadDatabases(panel, connection);
-        break;
-      case "selectDatabase":
-        await this.handleSelectDatabase(
-          message.data.database,
-          panel,
-          connection
-        );
-        break;
-      case "createDatabase":
-        await this.handleCreateDatabase(message.data.name, panel, connection);
-        break;
-      case "deleteDatabase":
-        await this.handleDeleteDatabase(message.data.name, panel, connection);
-        break;
-      case "getWarnings":
+    console.log(
+      "[DatabaseProvider] handleCollectionBrowserMessage:",
+      message.type
+    );
+
+    try {
+      switch (message.type) {
+        case "executeQuery":
+          await this.executeQuery(message.data.sql, panel, connection);
+          break;
+        case "loadCollectionData":
+          await this.loadCollectionData(
+            message.data.collectionName,
+            panel,
+            connection
+          );
+          break;
+        case "refreshCollections":
+          console.log("[DatabaseProvider] Handling refreshCollections");
+          await this.refreshCollections(panel, connection);
+          break;
+        case "loadDatabases":
+          await this.handleLoadDatabases(panel, connection);
+          break;
+        case "selectDatabase":
+          await this.handleSelectDatabase(
+            message.data.database,
+            panel,
+            connection
+          );
+          break;
+        case "createDatabase":
+          await this.handleCreateDatabase(message.data.name, panel, connection);
+          break;
+        case "deleteDatabase":
+          await this.handleDeleteDatabase(message.data.name, panel, connection);
+          break;
+        case "getWarnings":
+          panel.webview.postMessage({
+            type: "warnings",
+            data: { warnings: this.getWarnings() },
+          });
+          break;
+        case "vectorSearch":
+          await this.handleVectorSearch(message.data, panel, connection);
+          break;
+        case "getSavedQueries":
+          await this.handleGetSavedQueries(panel, connection);
+          break;
+        case "saveQuery":
+          await this.handleSaveQuery(message.data, panel, connection);
+          break;
+        case "updateQuery":
+          await this.handleUpdateQuery(message.data, panel, connection);
+          break;
+        case "deleteQuery":
+          await this.handleDeleteQuery(message.data, panel, connection);
+          break;
+        case "createCollection":
+          await this.handleCreateCollection(message.data, panel, connection);
+          break;
+        case "deleteCollection":
+          await this.handleDeleteCollection(message.data, panel, connection);
+          break;
+        case "renameCollection":
+          await this.handleRenameCollection(message.data, panel, connection);
+          break;
+        case "deleteDocument":
+          await this.handleDeleteDocument(message.data, panel, connection);
+          break;
+        case "updateDocument":
+          await this.handleUpdateDocument(message.data, panel, connection);
+          break;
+        case "createDocument":
+          await this.handleCreateDocument(message.data, panel, connection);
+          break;
+      }
+    } catch (error) {
+      // Global error handler for all collection browser messages
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(
+        "[DatabaseProvider] Unhandled error in handleCollectionBrowserMessage:",
+        errorMsg
+      );
+      this.addWarning("error", `Operation failed: ${errorMsg}`);
+
+      // Send error message to frontend based on message type
+      if (
+        message.type === "deleteDocument" ||
+        message.type === "updateDocument" ||
+        message.type === "createDocument"
+      ) {
         panel.webview.postMessage({
-          type: "warnings",
-          data: { warnings: this.getWarnings() },
+          type: "documentError",
+          data: { error: errorMsg },
         });
-        break;
-      case "vectorSearch":
-        await this.handleVectorSearch(message.data, panel, connection);
-        break;
+      } else if (
+        message.type === "createCollection" ||
+        message.type === "deleteCollection" ||
+        message.type === "renameCollection"
+      ) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: errorMsg },
+        });
+      } else {
+        panel.webview.postMessage({
+          type: "queryError",
+          data: { error: errorMsg },
+        });
+      }
     }
   }
 
@@ -958,6 +1081,17 @@ export class DatabaseProvider {
         this.seekdbClients.set(connection.id, clients);
       }
 
+      // 发送更新后的 connectionInfo 给 panel
+      panel.webview.postMessage({
+        type: "connectionInfoUpdated",
+        data: {
+          name: connection.name,
+          host: connection.host,
+          port: connection.port,
+          database: dbName,
+        },
+      });
+
       // Refresh collections list
       await this.refreshCollections(panel, connection);
       this.addWarning("info", `Switched to database: ${dbName}`);
@@ -994,6 +1128,16 @@ export class DatabaseProvider {
       // If this connection has an open Collection Browser panel, refresh collections list
       const existingPanel = this.collectionPanels.get(connectionId);
       if (existingPanel) {
+        // 发送更新后的 connectionInfo 给 panel
+        existingPanel.webview.postMessage({
+          type: "connectionInfoUpdated",
+          data: {
+            name: connection.name,
+            host: connection.host,
+            port: connection.port,
+            database: dbName,
+          },
+        });
         await this.refreshCollections(existingPanel, connection);
       }
     }
@@ -1127,18 +1271,41 @@ export class DatabaseProvider {
       const [rows, fields] = await conn.execute(sql);
       await conn.end();
 
-      // Parse results
-      const columns = (fields as any[]).map((field: any) => ({
-        name: field.name,
-        type: this.mysqlTypeToString(field.type, field.length),
-      }));
+      // Parse results - fields may be undefined or ResultSetHeader for DDL statements
+      const columns = Array.isArray(fields)
+        ? (fields as any[]).map((field: any) => ({
+            name: field.name,
+            type: this.mysqlTypeToString(field.type, field.length),
+          }))
+        : [];
+
+      // Sort columns: put metadata before embedding-related columns
+      const embeddingColumns = ["embedding", "_vector", "vector", "embeddings"];
+      const sortedColumns = this.sortColumnsWithMetadataFirst(
+        columns,
+        embeddingColumns
+      );
 
       const resultRows = Array.isArray(rows) ? (rows as any[]) : [];
 
+      // Convert Buffer fields to strings (for BLOB/BINARY types like _id)
+      const processedRows = resultRows.map((row) => {
+        const processedRow: Record<string, any> = {};
+        for (const [key, value] of Object.entries(row)) {
+          if (Buffer.isBuffer(value)) {
+            // Convert Buffer to UTF-8 string
+            processedRow[key] = value.toString("utf-8");
+          } else {
+            processedRow[key] = value;
+          }
+        }
+        return processedRow;
+      });
+
       return {
-        columns,
-        rows: resultRows,
-        rowCount: resultRows.length,
+        columns: sortedColumns,
+        rows: processedRows,
+        rowCount: processedRows.length,
         executionTime: "0s",
       };
     } catch (error) {
@@ -1192,6 +1359,46 @@ export class DatabaseProvider {
   }
 
   /**
+   * Sort columns: put metadata before embedding-related columns
+   */
+  private sortColumnsWithMetadataFirst(
+    columns: { name: string; type: string }[],
+    embeddingColumns: string[]
+  ): { name: string; type: string }[] {
+    const embeddingSet = new Set(
+      embeddingColumns.map((name) => name.toLowerCase())
+    );
+
+    // Find metadata and embedding column indices
+    const metadataIndex = columns.findIndex(
+      (col) => col.name.toLowerCase() === "metadata"
+    );
+    const firstEmbeddingIndex = columns.findIndex((col) =>
+      embeddingSet.has(col.name.toLowerCase())
+    );
+
+    // If both exist and metadata is after embedding, swap them
+    if (
+      metadataIndex !== -1 &&
+      firstEmbeddingIndex !== -1 &&
+      metadataIndex > firstEmbeddingIndex
+    ) {
+      // Create a new sorted array
+      const sortedColumns = [...columns];
+
+      // Remove metadata from its current position
+      const [metadataCol] = sortedColumns.splice(metadataIndex, 1);
+
+      // Insert metadata before the first embedding column
+      sortedColumns.splice(firstEmbeddingIndex, 0, metadataCol);
+
+      return sortedColumns;
+    }
+
+    return columns;
+  }
+
+  /**
    * 加载集合数据
    */
   private async loadCollectionData(
@@ -1240,15 +1447,26 @@ export class DatabaseProvider {
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection
   ): Promise<void> {
+    console.log(
+      "[DatabaseProvider] refreshCollections called, isSeekDB:",
+      this.isSeekDBConnection(connection)
+    );
     if (this.isSeekDBConnection(connection)) {
       try {
+        console.log("[DatabaseProvider] Getting SeekDB collections...");
         const collections = await this.getSeekDBCollections(connection);
+        console.log("[DatabaseProvider] Got collections:", collections.length);
         panel.webview.postMessage({
           type: "collectionsList",
           data: { collections },
         });
+        console.log("[DatabaseProvider] Sent collectionsList message");
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(
+          "[DatabaseProvider] Error getting collections:",
+          errorMsg
+        );
         this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
         panel.webview.postMessage({
           type: "collectionsError",
@@ -1257,6 +1475,7 @@ export class DatabaseProvider {
       }
     } else {
       // Non-SeekDB type, use mock data
+      console.log("[DatabaseProvider] Using mock collections");
       const mockCollections = this.getMockCollections();
       panel.webview.postMessage({
         type: "collectionsList",
@@ -1841,5 +2060,701 @@ export class DatabaseProvider {
     };
 
     return this.htmlLoader.loadPage(webview, "ConnectPage", config);
+  }
+
+  /**
+   * Get storage key for saved queries
+   */
+  private getSavedQueriesKey(connectionId: string): string {
+    return `savedQueries_${connectionId}`;
+  }
+
+  /**
+   * Get saved queries for a connection
+   */
+  private getSavedQueries(connectionId: string): SavedQuery[] {
+    const key = this.getSavedQueriesKey(connectionId);
+    return this.context.globalState.get<SavedQuery[]>(key, []);
+  }
+
+  /**
+   * Save queries for a connection
+   */
+  private saveSavedQueries(connectionId: string, queries: SavedQuery[]): void {
+    const key = this.getSavedQueriesKey(connectionId);
+    this.context.globalState.update(key, queries);
+  }
+
+  /**
+   * Handle get saved queries
+   */
+  private async handleGetSavedQueries(
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    panel.webview.postMessage({
+      type: "savedQueriesList",
+      data: { queries },
+    });
+  }
+
+  /**
+   * Handle save query
+   */
+  private async handleSaveQuery(
+    data: { name: string; sql: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const now = Date.now();
+    const newQuery: SavedQuery = {
+      id: `query_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      name: data.name,
+      sql: data.sql,
+      createdAt: now,
+      updatedAt: now,
+    };
+    queries.push(newQuery);
+    this.saveSavedQueries(connection.id, queries);
+
+    panel.webview.postMessage({
+      type: "querySaved",
+      data: newQuery,
+    });
+  }
+
+  /**
+   * Handle update query
+   */
+  private async handleUpdateQuery(
+    data: { id: string; name?: string; sql?: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const index = queries.findIndex((q) => q.id === data.id);
+    if (index >= 0) {
+      if (data.name !== undefined) {
+        queries[index].name = data.name;
+      }
+      if (data.sql !== undefined) {
+        queries[index].sql = data.sql;
+      }
+      queries[index].updatedAt = Date.now();
+      this.saveSavedQueries(connection.id, queries);
+
+      panel.webview.postMessage({
+        type: "queryUpdated",
+        data: queries[index],
+      });
+    }
+  }
+
+  /**
+   * Handle delete query
+   */
+  private async handleDeleteQuery(
+    data: { id: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const queries = this.getSavedQueries(connection.id);
+    const filteredQueries = queries.filter((q) => q.id !== data.id);
+    this.saveSavedQueries(connection.id, filteredQueries);
+
+    panel.webview.postMessage({
+      type: "queryDeleted",
+      data: { id: data.id },
+    });
+  }
+
+  /**
+   * Handle create collection
+   */
+  private async handleCreateCollection(
+    data: { name: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: "Only SeekDB connections support creating collections" },
+      });
+      return;
+    }
+
+    try {
+      const collectionName = data.name.trim();
+      if (!collectionName) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "Collection name cannot be empty" },
+        });
+        return;
+      }
+
+      // Create table with basic structure (id and _vector fields for SeekDB)
+      const createTableSql = `CREATE TABLE IF NOT EXISTS \`${collectionName}\` (
+        \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+        \`content\` TEXT,
+        \`_vector\` JSON,
+        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`;
+
+      await this.executeSeekDBQuery(connection.id, createTableSql);
+
+      this.addWarning(
+        "info",
+        `Successfully created collection: ${collectionName}`
+      );
+      vscode.window.showInformationMessage(
+        `Successfully created collection: ${collectionName}`
+      );
+
+      panel.webview.postMessage({
+        type: "collectionCreated",
+        data: { name: collectionName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to create collection: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle delete collection
+   */
+  private async handleDeleteCollection(
+    data: { name: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: "Only SeekDB connections support deleting collections" },
+      });
+      return;
+    }
+
+    try {
+      const collectionName = data.name.trim();
+      if (!collectionName) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "Collection name cannot be empty" },
+        });
+        return;
+      }
+
+      // Drop table
+      const dropTableSql = `DROP TABLE IF EXISTS \`${collectionName}\``;
+      await this.executeSeekDBQuery(connection.id, dropTableSql);
+
+      this.addWarning(
+        "info",
+        `Successfully deleted collection: ${collectionName}`
+      );
+      vscode.window.showInformationMessage(
+        `Successfully deleted collection: ${collectionName}`
+      );
+
+      panel.webview.postMessage({
+        type: "collectionDeleted",
+        data: { name: collectionName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to delete collection: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle rename collection
+   */
+  private async handleRenameCollection(
+    data: { oldName: string; newName: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: "Only SeekDB connections support renaming collections" },
+      });
+      return;
+    }
+
+    try {
+      const oldName = data.oldName.trim();
+      const newName = data.newName.trim();
+
+      if (!oldName || !newName) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "Collection name cannot be empty" },
+        });
+        return;
+      }
+
+      if (oldName === newName) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "New name is the same as the old name" },
+        });
+        return;
+      }
+
+      // Rename table
+      const renameTableSql = `RENAME TABLE \`${oldName}\` TO \`${newName}\``;
+      await this.executeSeekDBQuery(connection.id, renameTableSql);
+
+      this.addWarning(
+        "info",
+        `Successfully renamed collection: ${oldName} -> ${newName}`
+      );
+      vscode.window.showInformationMessage(
+        `Successfully renamed collection: ${oldName} -> ${newName}`
+      );
+
+      panel.webview.postMessage({
+        type: "collectionRenamed",
+        data: { oldName, newName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to rename collection: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "collectionError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle delete document - uses SeekDB Collection API
+   */
+  private async handleDeleteDocument(
+    data: {
+      collectionName: string;
+      documentId: any;
+      rowData: Record<string, any>;
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: "Only SeekDB connections support deleting documents" },
+      });
+      return;
+    }
+
+    try {
+      const { collectionName, documentId, rowData } = data;
+
+      if (!collectionName) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "Collection name is required" },
+        });
+        return;
+      }
+
+      // Get document ID (_id field is the standard field name in SeekDB Collection)
+      const docId = documentId || rowData._id || rowData.id;
+
+      if (!docId) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "Cannot identify document to delete (no _id found)" },
+        });
+        return;
+      }
+
+      // Get SeekDB client, try to reconnect if not connected
+      let client = this.getSeekDBClient(connection.id);
+      if (!client && connection.connected) {
+        try {
+          const clients = await this.createSeekDBClients(connection);
+          this.seekdbClients.set(connection.id, clients);
+          client = clients.client;
+          this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
+        } catch (reconnectError) {
+          const errMsg =
+            reconnectError instanceof Error
+              ? reconnectError.message
+              : String(reconnectError);
+          panel.webview.postMessage({
+            type: "documentError",
+            data: { error: `Failed to reconnect: ${errMsg}` },
+          });
+          return;
+        }
+      }
+
+      if (!client) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "SeekDB client not connected" },
+        });
+        return;
+      }
+
+      // Extract collection name (remove c$v1$ prefix if present)
+      const COLLECTION_PREFIX = "c$v1$";
+      const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName.slice(COLLECTION_PREFIX.length)
+        : collectionName;
+
+      // Get collection with embeddingFunction set to null (not needed for delete)
+      let collection;
+      try {
+        collection = await client.getCollection({
+          name: actualCollectionName,
+          embeddingFunction: null,
+        });
+      } catch (getCollectionError) {
+        const errMsg =
+          getCollectionError instanceof Error
+            ? getCollectionError.message
+            : String(getCollectionError);
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: `Failed to get collection: ${errMsg}` },
+        });
+        return;
+      }
+
+      // Use collection.delete() API
+      try {
+        await collection.delete({
+          ids: [String(docId)],
+        });
+      } catch (deleteError) {
+        const errMsg =
+          deleteError instanceof Error
+            ? deleteError.message
+            : String(deleteError);
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: `Failed to delete document: ${errMsg}` },
+        });
+        return;
+      }
+
+      this.addWarning(
+        "info",
+        `Successfully deleted document from ${collectionName}`
+      );
+
+      panel.webview.postMessage({
+        type: "documentDeleted",
+        data: { collectionName, documentId: docId },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to delete document: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle update document - uses SeekDB Collection API with automatic vectorization
+   */
+  private async handleUpdateDocument(
+    data: {
+      collectionName: string;
+      documentId: any;
+      originalData: Record<string, any>;
+      updatedData: Record<string, any>;
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: "Only SeekDB connections support updating documents" },
+      });
+      return;
+    }
+
+    try {
+      const { collectionName, documentId, originalData, updatedData } = data;
+
+      if (!collectionName) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "Collection name is required" },
+        });
+        return;
+      }
+
+      // Get SeekDB client, try to reconnect if not connected
+      let client = this.getSeekDBClient(connection.id);
+      if (!client && connection.connected) {
+        try {
+          const clients = await this.createSeekDBClients(connection);
+          this.seekdbClients.set(connection.id, clients);
+          client = clients.client;
+          this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
+        } catch (reconnectError) {
+          const errMsg =
+            reconnectError instanceof Error
+              ? reconnectError.message
+              : String(reconnectError);
+          panel.webview.postMessage({
+            type: "documentError",
+            data: { error: `Failed to reconnect: ${errMsg}` },
+          });
+          return;
+        }
+      }
+
+      if (!client) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "SeekDB client not connected" },
+        });
+        return;
+      }
+
+      // Extract collection name (remove c$v1$ prefix if present)
+      const COLLECTION_PREFIX = "c$v1$";
+      const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName.slice(COLLECTION_PREFIX.length)
+        : collectionName;
+
+      // Get document ID (_id field)
+      const docId =
+        documentId || originalData._id || originalData.id || String(Date.now());
+
+      // Create embedding function adapter from project's embedding service
+      const embeddingFunction = this.createEmbeddingFunctionAdapter();
+      if (!embeddingFunction) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: {
+            error:
+              "Embedding service not available. Please check your embedding configuration in settings.",
+          },
+        });
+        return;
+      }
+
+      // Show info message about using embedding model
+      const modelName = embeddingFunction.name;
+      vscode.window.showInformationMessage(
+        `Updating document with vectorization using: ${modelName}`
+      );
+
+      // Get collection with embedding function for automatic vectorization
+      const collection = await client.getCollection({
+        name: actualCollectionName,
+        embeddingFunction: embeddingFunction,
+      });
+
+      // Extract document content and metadata from updated data
+      const documentContent = updatedData.document || null;
+      const metadata = updatedData.metadata || null;
+
+      // Build update options
+      const updateOptions: {
+        ids: string[];
+        documents?: string[];
+        metadatas?: Record<string, any>[];
+      } = {
+        ids: [String(docId)],
+      };
+
+      if (documentContent !== null) {
+        updateOptions.documents = [String(documentContent)];
+      }
+
+      if (metadata !== null) {
+        updateOptions.metadatas = [
+          typeof metadata === "object" ? metadata : { value: metadata },
+        ];
+      }
+
+      // Use collection.update() which automatically handles vectorization
+      await collection.update(updateOptions);
+
+      this.addWarning(
+        "info",
+        `Successfully updated document in ${collectionName} with vectorization`
+      );
+
+      panel.webview.postMessage({
+        type: "documentUpdated",
+        data: { collectionName, documentId: docId },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to update document: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle create document - uses SeekDB Collection API with automatic vectorization
+   */
+  private async handleCreateDocument(
+    data: {
+      collectionName: string;
+      documentData: Record<string, any>;
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: "Only SeekDB connections support creating documents" },
+      });
+      return;
+    }
+
+    try {
+      const { collectionName, documentData } = data;
+
+      if (!collectionName) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "Collection name is required" },
+        });
+        return;
+      }
+
+      // Get SeekDB client, try to reconnect if not connected
+      let client = this.getSeekDBClient(connection.id);
+      if (!client && connection.connected) {
+        try {
+          const clients = await this.createSeekDBClients(connection);
+          this.seekdbClients.set(connection.id, clients);
+          client = clients.client;
+          this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
+        } catch (reconnectError) {
+          const errMsg =
+            reconnectError instanceof Error
+              ? reconnectError.message
+              : String(reconnectError);
+          panel.webview.postMessage({
+            type: "documentError",
+            data: { error: `Failed to reconnect: ${errMsg}` },
+          });
+          return;
+        }
+      }
+
+      if (!client) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "SeekDB client not connected" },
+        });
+        return;
+      }
+
+      // Extract collection name (remove c$v1$ prefix if present)
+      const COLLECTION_PREFIX = "c$v1$";
+      const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName.slice(COLLECTION_PREFIX.length)
+        : collectionName;
+
+      // Generate unique ID for the document
+      const docId = String(Date.now());
+
+      // Create embedding function adapter from project's embedding service
+      const embeddingFunction = this.createEmbeddingFunctionAdapter();
+      if (!embeddingFunction) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: {
+            error:
+              "Embedding service not available. Please check your embedding configuration in settings.",
+          },
+        });
+        return;
+      }
+
+      // Show info message about using embedding model
+      const modelName = embeddingFunction.name;
+      vscode.window.showInformationMessage(
+        `Adding document with vectorization using: ${modelName}`
+      );
+
+      // Get collection with embedding function for automatic vectorization
+      const collection = await client.getCollection({
+        name: actualCollectionName,
+        embeddingFunction: embeddingFunction,
+      });
+
+      // Extract document content and metadata
+      const documentContent = documentData.document || null;
+      const metadata = documentData.metadata || null;
+
+      if (!documentContent) {
+        panel.webview.postMessage({
+          type: "documentError",
+          data: { error: "Document content is required for vectorization" },
+        });
+        return;
+      }
+
+      // Build add options
+      const addOptions: {
+        ids: string[];
+        documents: string[];
+        metadatas?: Record<string, any>[];
+      } = {
+        ids: [docId],
+        documents: [String(documentContent)],
+      };
+
+      if (metadata !== null) {
+        addOptions.metadatas = [
+          typeof metadata === "object" ? metadata : { value: metadata },
+        ];
+      }
+
+      // Use collection.add() which automatically handles vectorization
+      await collection.add(addOptions);
+
+      this.addWarning(
+        "info",
+        `Successfully created document in ${collectionName} with vectorization`
+      );
+
+      panel.webview.postMessage({
+        type: "documentCreated",
+        data: { collectionName, documentId: docId },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to create document: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "documentError",
+        data: { error: errorMsg },
+      });
+    }
   }
 }

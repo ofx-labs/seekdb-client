@@ -50,6 +50,19 @@ export class CommandManager {
           }
         }
       ),
+      vscode.commands.registerCommand("seekdb.openDocs", async () => {
+        try {
+          const docsUrl = vscode.Uri.parse(
+            "https://www.oceanbase.ai/docs/seekdb-overview/"
+          );
+          await vscode.env.openExternal(docsUrl);
+        } catch (error) {
+          console.error("打开文档失败:", error);
+          vscode.window.showErrorMessage(
+            "无法打开文档页面，请手动访问 https://www.oceanbase.ai/docs/seekdb-overview/"
+          );
+        }
+      }),
       vscode.commands.registerCommand("seekdb.openSettings", async () => {
         try {
           // 方法1: 使用配置前缀打开设置并自动过滤
