@@ -59,12 +59,14 @@ body {
 
 /* 左侧边栏 - 数据库结构树 */
 .sidebar {
-  width: 280px;
+  min-width: 200px;
+  max-width: 500px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .sidebar-header {
@@ -1213,4 +1215,222 @@ body {
 
 .result-header .actions button:disabled:hover {
   background: none;
+}
+
+/* Code 按钮激活状态 */
+.query-actions .btn.active {
+  background: var(--button-bg);
+  color: white;
+}
+
+/* 代码片段侧边栏 */
+.code-snippet-panel {
+  min-width: 300px;
+  max-width: 600px;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.code-snippet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.code-snippet-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.code-snippet-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.code-snippet-close:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.code-snippet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.code-snippet-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--input-fg);
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+.code-snippet-select:focus {
+  outline: none;
+  border-color: var(--button-bg);
+}
+
+.code-snippet-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.code-snippet-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.code-snippet-action-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.code-snippet-action-btn.copied {
+  color: var(--success-color);
+}
+
+.code-snippet-content {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.code-snippet-code {
+  margin: 0;
+  padding: 12px 0;
+  background: var(--bg-color);
+  font-family: "SF Mono", Monaco, Menlo, Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.code-line {
+  display: flex;
+  min-height: 21px;
+}
+
+.code-line:hover {
+  background: var(--hover-bg);
+}
+
+.line-number {
+  display: inline-block;
+  width: 40px;
+  padding: 0 12px 0 0;
+  text-align: right;
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.line-content {
+  flex: 1;
+  padding-right: 16px;
+  white-space: pre;
+  color: var(--text-color);
+}
+
+/* 代码语法高亮 - 简单着色 */
+.code-snippet-code .keyword {
+  color: #c586c0;
+}
+
+.code-snippet-code .string {
+  color: #ce9178;
+}
+
+.code-snippet-code .number {
+  color: #b5cea8;
+}
+
+.code-snippet-code .comment {
+  color: #6a9955;
+}
+
+.code-snippet-code .function {
+  color: #dcdcaa;
+}
+
+.code-snippet-code .variable {
+  color: #9cdcfe;
+}
+
+/* 拖动手柄样式 */
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+  z-index: 10;
+}
+
+.resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  left: -2px;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--button-bg);
+}
+
+.resize-handle-left {
+  margin-left: -1px;
+  border-left: 1px solid var(--border-color);
+}
+
+.resize-handle-right {
+  margin-right: -1px;
+  border-right: 1px solid var(--border-color);
+}
+
+/* 拖动时禁用文本选择 */
+.collection-browser-page.resizing {
+  user-select: none;
+}
+
+.collection-browser-page.resizing * {
+  cursor: col-resize !important;
 }

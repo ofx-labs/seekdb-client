@@ -21,10 +21,14 @@ import {
   Check,
   X,
   Eye,
+  Code2,
+  Copy,
+  Settings2,
 } from "lucide-react";
 import "./CollectionBrowserPage.css";
 
 type EmbeddingType = "builtin" | "openai" | "ollama" | "anthropic" | "qwen";
+type CodeSnippetType = "nodejs-seekdb" | "python-pyseekdb";
 
 interface ConnectionInfo {
   name: string;
@@ -160,6 +164,25 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [newDocumentData, setNewDocumentData] = useState<
     Record<string, string>
   >({});
+
+  // 代码片段侧边栏相关状态
+  const [showCodeSnippet, setShowCodeSnippet] = useState(false);
+  const [codeSnippetType, setCodeSnippetType] =
+    useState<CodeSnippetType>("nodejs-seekdb");
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  // 侧边栏宽度拖动相关状态
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(420);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 侧边栏宽度限制常量
+  const LEFT_SIDEBAR_MIN_WIDTH = 200;
+  const LEFT_SIDEBAR_MAX_WIDTH = 500;
+  const RIGHT_PANEL_MIN_WIDTH = 300;
+  const RIGHT_PANEL_MAX_WIDTH = 600;
 
   // Listen for messages from extension
   useEffect(() => {
@@ -429,6 +452,63 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [contextMenu.visible]);
+
+  // 侧边栏拖动逻辑
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingLeft && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const newWidth = e.clientX - containerRect.left;
+        setLeftSidebarWidth(
+          Math.max(
+            LEFT_SIDEBAR_MIN_WIDTH,
+            Math.min(LEFT_SIDEBAR_MAX_WIDTH, newWidth)
+          )
+        );
+      }
+      if (isDraggingRight && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const newWidth = containerRect.right - e.clientX;
+        setRightPanelWidth(
+          Math.max(
+            RIGHT_PANEL_MIN_WIDTH,
+            Math.min(RIGHT_PANEL_MAX_WIDTH, newWidth)
+          )
+        );
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingLeft(false);
+      setIsDraggingRight(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    if (isDraggingLeft || isDraggingRight) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingLeft, isDraggingRight]);
+
+  // 开始拖动左侧边栏
+  const handleLeftResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+  };
+
+  // 开始拖动右侧面板
+  const handleRightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingRight(true);
+  };
 
   // Initialize: actively request collections list and saved queries
   useEffect(() => {
@@ -936,6 +1016,103 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
+  // 生成代码片段
+  const generateCodeSnippet = (type: CodeSnippetType): string => {
+    const host = connectionInfo.host || "localhost";
+    const port = connectionInfo.port || 2881;
+    const database = connectionInfo.database || "test";
+    const collection = selectedCollection || "your_collection";
+    const queryText = vectorSearchQuery || "your search query";
+
+    switch (type) {
+      case "nodejs-seekdb":
+        return `const { Client } = require('seekdb');
+
+// Connect to SeekDB
+const client = new Client({
+  host: "${host}",
+  port: ${port}
+});
+
+async function main() {
+  // Get database
+  const db = client.getDatabase("${database}");
+
+  // Get collection
+  const collection = db.getCollection("${collection}");
+
+  // Perform vector similarity search
+  const results = await collection.query({
+    queryTexts: ["${queryText}"],
+    nResults: ${vectorSearchLimit}
+  });
+
+  // Print results
+  results.documents[0].forEach((doc, i) => {
+    console.log(\`Result \${i + 1}:\`);
+    console.log(\`  Document: \${doc}\`);
+    console.log(\`  Distance: \${results.distances[0][i]}\`);
+    if (results.metadatas) {
+      console.log(\`  Metadata: \${JSON.stringify(results.metadatas[0][i])}\`);
+    }
+    console.log();
+  });
+}
+
+main().catch(console.error);`;
+
+      case "python-pyseekdb":
+        return `from pyseekdb import Client
+
+# Connect to SeekDB
+client = Client(
+    host="${host}",
+    port=${port}
+)
+
+# Get database
+db = client.get_database("${database}")
+
+# Get or create collection
+collection = db.get_collection("${collection}")
+
+# Perform vector similarity search
+results = collection.query(
+    query_texts=["${queryText}"],
+    n_results=${vectorSearchLimit}
+)
+
+# Print results
+for i, doc in enumerate(results['documents'][0]):
+    print(f"Result {i + 1}:")
+    print(f"  Document: {doc}")
+    print(f"  Distance: {results['distances'][0][i]}")
+    if results.get('metadatas'):
+        print(f"  Metadata: {results['metadatas'][0][i]}")
+    print()`;
+
+      default:
+        return "";
+    }
+  };
+
+  // 复制代码到剪贴板
+  const handleCopyCode = async () => {
+    const code = generateCodeSnippet(codeSnippetType);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy code:", err);
+    }
+  };
+
+  // 切换代码片段侧边栏
+  const handleToggleCodeSnippet = () => {
+    setShowCodeSnippet(!showCodeSnippet);
+  };
+
   const formatCell = (value: any): { display: string; title: string } => {
     if (value === null || value === undefined) {
       return { display: "", title: "" };
@@ -968,7 +1145,11 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     }) || [];
 
   return (
-    <div className="collection-browser-page">
+    <div
+      className={`collection-browser-page ${
+        isDraggingLeft || isDraggingRight ? "resizing" : ""
+      }`}
+    >
       {/* 成功消息提示 */}
       {successMessage && (
         <div className="success-toast">
@@ -982,9 +1163,9 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           </button>
         </div>
       )}
-      <div className="container">
+      <div className="container" ref={containerRef}>
         {/* Left sidebar */}
-        <div className="sidebar">
+        <div className="sidebar" style={{ width: leftSidebarWidth }}>
           <div className="sidebar-header">
             <Plug size={16} className="icon" />
             <span>
@@ -1398,6 +1579,14 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           )}
         </div>
 
+        {/* Left sidebar resize handle */}
+        <div
+          className={`resize-handle resize-handle-left ${
+            isDraggingLeft ? "active" : ""
+          }`}
+          onMouseDown={handleLeftResizeStart}
+        />
+
         {/* Right main area */}
         <div className="main-content">
           {/* Query editor */}
@@ -1415,6 +1604,17 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
               <button className="btn btn-secondary" onClick={handleSaveQuery}>
                 <Save size={14} /> Save
               </button>
+              {isSeekDB && (
+                <button
+                  className={`btn btn-secondary ${
+                    showCodeSnippet ? "active" : ""
+                  }`}
+                  onClick={handleToggleCodeSnippet}
+                  title="Show code snippet"
+                >
+                  <Code2 size={14} /> Code
+                </button>
+              )}
             </div>
             {/* 保存查询对话框 */}
             {showSaveDialog && (
@@ -1622,6 +1822,70 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             </div>
           </div>
         </div>
+
+        {/* 代码片段侧边栏 */}
+        {showCodeSnippet && (
+          <>
+            {/* Right panel resize handle */}
+            <div
+              className={`resize-handle resize-handle-right ${
+                isDraggingRight ? "active" : ""
+              }`}
+              onMouseDown={handleRightResizeStart}
+            />
+            <div
+              className="code-snippet-panel"
+              style={{ width: rightPanelWidth }}
+            >
+              <div className="code-snippet-header">
+                <h4>Code snippet</h4>
+                <button
+                  className="code-snippet-close"
+                  onClick={() => setShowCodeSnippet(false)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="code-snippet-toolbar">
+                <select
+                  className="code-snippet-select"
+                  value={codeSnippetType}
+                  onChange={(e) =>
+                    setCodeSnippetType(e.target.value as CodeSnippetType)
+                  }
+                >
+                  <option value="nodejs-seekdb">NodeJs - seekdb</option>
+                  <option value="python-pyseekdb">Python - pyseekdb</option>
+                </select>
+                <div className="code-snippet-actions">
+                  <button
+                    className={`code-snippet-action-btn ${
+                      codeCopied ? "copied" : ""
+                    }`}
+                    onClick={handleCopyCode}
+                    title={codeCopied ? "Copied!" : "Copy code"}
+                  >
+                    {codeCopied ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div className="code-snippet-content">
+                <pre className="code-snippet-code">
+                  <code>
+                    {generateCodeSnippet(codeSnippetType)
+                      .split("\n")
+                      .map((line, index) => (
+                        <div key={index} className="code-line">
+                          <span className="line-number">{index + 1}</span>
+                          <span className="line-content">{line}</span>
+                        </div>
+                      ))}
+                  </code>
+                </pre>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 右键上下文菜单 */}
