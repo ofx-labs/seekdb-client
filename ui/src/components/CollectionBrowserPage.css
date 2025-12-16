@@ -651,3 +651,293 @@ body {
 .query-edit-input:focus {
   outline: none;
 }
+
+/* 集合管理样式 */
+.tree-item-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.tree-item.level-1:hover .tree-item-actions {
+  display: flex;
+}
+
+.tree-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-action-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* 集合项样式 */
+.collection-item {
+  position: relative;
+}
+
+.collection-item .collection-item-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.collection-item:hover .collection-item-actions {
+  display: flex;
+}
+
+.collection-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collection-action-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.collection-action-btn.delete:hover {
+  color: var(--danger-color);
+}
+
+.collection-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 编辑集合名称容器 */
+.collection-edit-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+/* 内联前缀样式（用于重命名） */
+.collection-prefix-inline {
+  padding: 2px 4px 2px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  user-select: none;
+  white-space: nowrap;
+  background: transparent;
+}
+
+.collection-edit-input {
+  flex: 1;
+  padding: 2px 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--button-bg);
+  border-radius: 2px;
+  color: var(--input-fg);
+  font-size: 12px;
+  min-width: 80px;
+}
+
+.collection-edit-input.with-prefix {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.collection-edit-input:focus {
+  outline: none;
+}
+
+.collection-edit-input:disabled {
+  opacity: 0.7;
+}
+
+/* 集合对话框样式 */
+.collection-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.collection-dialog {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.collection-dialog h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+/* 带前缀的输入框容器 */
+.collection-input-with-prefix {
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.collection-input-with-prefix:focus-within {
+  border-color: var(--button-bg);
+}
+
+.collection-prefix-label {
+  padding: 8px 0 8px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--header-bg);
+  user-select: none;
+  white-space: nowrap;
+  border-right: 1px solid var(--border-color);
+  padding-right: 8px;
+}
+
+.collection-dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--input-fg);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.collection-dialog-input.with-prefix {
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.collection-dialog-input.with-prefix:focus {
+  outline: none;
+}
+
+.collection-dialog-input:focus {
+  outline: none;
+  border-color: var(--button-bg);
+}
+
+.collection-dialog-input:disabled {
+  opacity: 0.7;
+}
+
+.collection-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.collection-dialog-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 删除确认对话框 */
+.delete-dialog .delete-warning {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+.delete-dialog .delete-warning strong {
+  color: var(--danger-color);
+}
+
+.btn-danger {
+  background: var(--danger-color) !important;
+  color: white !important;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c82333 !important;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* 成功消息 Toast */
+.success-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--success-color);
+  color: #1e1e1e;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-close-btn {
+  background: none;
+  border: none;
+  color: #1e1e1e;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  border-radius: 2px;
+}
+
+.toast-close-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}

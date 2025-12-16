@@ -3,7 +3,6 @@ import {
   Plug,
   RefreshCw,
   Plus,
-  Settings,
   Database,
   FileText,
   List,
@@ -13,8 +12,6 @@ import {
   Play,
   Search,
   Trash2,
-  ArrowUp,
-  ArrowDown,
   XCircle,
   BarChart3,
   Clock,
@@ -71,6 +68,9 @@ declare global {
   }
 }
 
+// 集合名称前缀常量
+const COLLECTION_PREFIX = "c$v1$";
+
 const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   vscode,
   connectionInfo: initialConnectionInfo,
@@ -115,6 +115,21 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [editingQueryName, setEditingQueryName] = useState("");
   const [saveQueryName, setSaveQueryName] = useState("");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  // 集合管理相关状态
+  const [showCreateCollectionDialog, setShowCreateCollectionDialog] =
+    useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [editingCollectionName, setEditingCollectionName] = useState<
+    string | null
+  >(null);
+  const [editingCollectionNewName, setEditingCollectionNewName] = useState("");
+  const [collectionToDelete, setCollectionToDelete] = useState<string | null>(
+    null
+  );
+  const [collectionOperationLoading, setCollectionOperationLoading] =
+    useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Listen for messages from extension
   useEffect(() => {
@@ -208,6 +223,73 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           setEditingQueryName("");
           // 刷新查询列表
           vscode.postMessage({ type: "getSavedQueries" });
+          break;
+        case "collectionCreated":
+          // 集合创建成功
+          console.log("[CollectionBrowser] Collection created:", message.data);
+          setShowCreateCollectionDialog(false);
+          setNewCollectionName("");
+          setCollectionOperationLoading(false);
+          setError(null);
+          // 显示成功消息
+          setSuccessMessage(
+            `Collection "${message.data?.name || ""}" created successfully`
+          );
+          setTimeout(() => setSuccessMessage(null), 3000);
+          // 刷新集合列表
+          vscode.postMessage({ type: "refreshCollections" });
+          break;
+        case "collectionDeleted":
+          // 集合删除成功
+          console.log("[CollectionBrowser] Collection deleted:", message.data);
+          setCollectionToDelete(null);
+          setCollectionOperationLoading(false);
+          setError(null);
+          // 显示成功消息
+          setSuccessMessage(
+            `Collection "${message.data?.name || ""}" deleted successfully`
+          );
+          setTimeout(() => setSuccessMessage(null), 3000);
+          // 如果删除的是当前选中的集合，清空选择
+          if (selectedCollection === message.data?.name) {
+            setSelectedCollection(null);
+            setQueryResult(null);
+          }
+          // 刷新集合列表
+          vscode.postMessage({ type: "refreshCollections" });
+          break;
+        case "collectionRenamed":
+          // 集合重命名成功
+          console.log("[CollectionBrowser] Collection renamed:", message.data);
+          setEditingCollectionName(null);
+          setEditingCollectionNewName("");
+          setCollectionOperationLoading(false);
+          setError(null);
+          // 显示成功消息
+          setSuccessMessage(
+            `Collection renamed to "${
+              message.data?.newName || ""
+            }" successfully`
+          );
+          setTimeout(() => setSuccessMessage(null), 3000);
+          // 如果重命名的是当前选中的集合，更新选择
+          if (
+            selectedCollection === message.data?.oldName &&
+            message.data?.newName
+          ) {
+            setSelectedCollection(message.data.newName);
+          }
+          // 刷新集合列表
+          vscode.postMessage({ type: "refreshCollections" });
+          break;
+        case "collectionError":
+          // 集合操作失败
+          console.error(
+            "[CollectionBrowser] Collection operation error:",
+            message.data?.error
+          );
+          setError(message.data?.error || "Collection operation failed");
+          setCollectionOperationLoading(false);
           break;
       }
     };
@@ -375,6 +457,102 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
+  // 创建集合
+  const handleCreateCollection = () => {
+    const name = newCollectionName.trim();
+    if (!name) {
+      setError("Please enter a collection name");
+      return;
+    }
+    setCollectionOperationLoading(true);
+    setError(null);
+    // 自动添加前缀
+    const fullName = `${COLLECTION_PREFIX}${name}`;
+    vscode.postMessage({
+      type: "createCollection",
+      data: { name: fullName },
+    });
+  };
+
+  // 取消创建集合
+  const handleCancelCreateCollection = () => {
+    setShowCreateCollectionDialog(false);
+    setNewCollectionName("");
+  };
+
+  // 开始重命名集合
+  const handleStartRenameCollection = (
+    collectionName: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    setEditingCollectionName(collectionName);
+    // 去除前缀，只显示后半部分供用户编辑
+    const nameWithoutPrefix = collectionName.startsWith(COLLECTION_PREFIX)
+      ? collectionName.slice(COLLECTION_PREFIX.length)
+      : collectionName;
+    setEditingCollectionNewName(nameWithoutPrefix);
+  };
+
+  // 确认重命名集合
+  const handleConfirmRenameCollection = (
+    oldName: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    const inputName = editingCollectionNewName.trim();
+    if (!inputName) {
+      setEditingCollectionName(null);
+      setEditingCollectionNewName("");
+      return;
+    }
+    // 自动添加前缀
+    const newName = `${COLLECTION_PREFIX}${inputName}`;
+    if (newName === oldName) {
+      setEditingCollectionName(null);
+      setEditingCollectionNewName("");
+      return;
+    }
+    setCollectionOperationLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "renameCollection",
+      data: { oldName, newName },
+    });
+  };
+
+  // 取消重命名集合
+  const handleCancelRenameCollection = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCollectionName(null);
+    setEditingCollectionNewName("");
+  };
+
+  // 删除集合（显示确认对话框）
+  const handleShowDeleteCollection = (
+    collectionName: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    setCollectionToDelete(collectionName);
+  };
+
+  // 确认删除集合
+  const handleConfirmDeleteCollection = () => {
+    if (!collectionToDelete) return;
+    setCollectionOperationLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "deleteCollection",
+      data: { name: collectionToDelete },
+    });
+  };
+
+  // 取消删除集合
+  const handleCancelDeleteCollection = () => {
+    setCollectionToDelete(null);
+  };
+
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {
       const newSet = new Set(prev);
@@ -420,6 +598,19 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
 
   return (
     <div className="collection-browser-page">
+      {/* 成功消息提示 */}
+      {successMessage && (
+        <div className="success-toast">
+          <Check size={14} />
+          <span>{successMessage}</span>
+          <button
+            className="toast-close-btn"
+            onClick={() => setSuccessMessage(null)}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       <div className="container">
         {/* Left sidebar */}
         <div className="sidebar">
@@ -605,6 +796,20 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                       ? "(Loading...)"
                       : `(${collections.length})`}
                   </span>
+                  {isSeekDB && (
+                    <div className="tree-item-actions">
+                      <button
+                        className="tree-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCreateCollectionDialog(true);
+                        }}
+                        title="Create collection"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Collections list */}
@@ -631,7 +836,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                       collections.map((collection) => (
                         <div
                           key={collection.name}
-                          className={`tree-item level-2 ${
+                          className={`tree-item level-2 collection-item ${
                             selectedCollection === collection.name
                               ? "selected"
                               : ""
@@ -643,7 +848,90 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                             <ChevronRight size={12} />
                           </span>
                           <File size={14} className="item-icon" />
-                          <span className="item-name">{collection.name}</span>
+                          {editingCollectionName === collection.name ? (
+                            <div
+                              className="collection-edit-container"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span className="collection-prefix-inline">
+                                {COLLECTION_PREFIX}
+                              </span>
+                              <input
+                                type="text"
+                                className="collection-edit-input with-prefix"
+                                value={editingCollectionNewName}
+                                onChange={(e) =>
+                                  setEditingCollectionNewName(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter")
+                                    handleConfirmRenameCollection(
+                                      collection.name,
+                                      e as any
+                                    );
+                                  if (e.key === "Escape")
+                                    handleCancelRenameCollection(e as any);
+                                }}
+                                autoFocus
+                                disabled={collectionOperationLoading}
+                              />
+                              <button
+                                className="collection-action-btn"
+                                onClick={(e) =>
+                                  handleConfirmRenameCollection(
+                                    collection.name,
+                                    e
+                                  )
+                                }
+                                title="Save"
+                                disabled={collectionOperationLoading}
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                className="collection-action-btn"
+                                onClick={handleCancelRenameCollection}
+                                title="Cancel"
+                                disabled={collectionOperationLoading}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="item-name">
+                                {collection.name}
+                              </span>
+                              {isSeekDB && (
+                                <div className="collection-item-actions">
+                                  <button
+                                    className="collection-action-btn"
+                                    onClick={(e) =>
+                                      handleStartRenameCollection(
+                                        collection.name,
+                                        e
+                                      )
+                                    }
+                                    title="Rename"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    className="collection-action-btn delete"
+                                    onClick={(e) =>
+                                      handleShowDeleteCollection(
+                                        collection.name,
+                                        e
+                                      )
+                                    }
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       ))
                     )}
@@ -652,6 +940,91 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
               </>
             )}
           </div>
+
+          {/* 创建集合对话框 */}
+          {showCreateCollectionDialog && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog">
+                <h4>Create Collection</h4>
+                <div className="collection-input-with-prefix">
+                  <span className="collection-prefix-label">
+                    {COLLECTION_PREFIX}
+                  </span>
+                  <input
+                    type="text"
+                    className="collection-dialog-input with-prefix"
+                    placeholder="Enter collection name..."
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateCollection();
+                      if (e.key === "Escape") handleCancelCreateCollection();
+                    }}
+                    autoFocus
+                    disabled={collectionOperationLoading}
+                  />
+                </div>
+                <div className="collection-dialog-actions">
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleCreateCollection}
+                    disabled={collectionOperationLoading}
+                  >
+                    {collectionOperationLoading ? (
+                      <RefreshCw size={12} className="spin" />
+                    ) : (
+                      <Check size={12} />
+                    )}
+                    Create
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleCancelCreateCollection}
+                    disabled={collectionOperationLoading}
+                  >
+                    <X size={12} />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 删除集合确认对话框 */}
+          {collectionToDelete && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog delete-dialog">
+                <h4>Delete Collection</h4>
+                <p className="delete-warning">
+                  Are you sure you want to delete collection "
+                  <strong>{collectionToDelete}</strong>"? This action cannot be
+                  undone.
+                </p>
+                <div className="collection-dialog-actions">
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={handleConfirmDeleteCollection}
+                    disabled={collectionOperationLoading}
+                  >
+                    {collectionOperationLoading ? (
+                      <RefreshCw size={12} className="spin" />
+                    ) : (
+                      <Trash2 size={12} />
+                    )}
+                    Delete
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleCancelDeleteCollection}
+                    disabled={collectionOperationLoading}
+                  >
+                    <X size={12} />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right main area */}
@@ -787,9 +1160,6 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 />
               </div>
               <div className="actions">
-                <button title="Settings">
-                  <Settings size={14} />
-                </button>
                 <button title="Add">
                   <Plus size={14} />
                 </button>
@@ -798,12 +1168,6 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 </button>
                 <button title="Refresh">
                   <RefreshCw size={14} />
-                </button>
-                <button title="Move up">
-                  <ArrowUp size={14} />
-                </button>
-                <button title="Move down">
-                  <ArrowDown size={14} />
                 </button>
               </div>
             </div>
