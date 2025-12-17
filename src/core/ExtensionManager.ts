@@ -4,6 +4,7 @@ import { DatabaseProvider } from "../providers/DatabaseProvider";
 import { CollectionHoverProvider } from "../providers/CollectionHoverProvider";
 import { CommandManager } from "../commands/CommandManager";
 import { ViewManager } from "../views/ViewManager";
+import { PreflightService } from "../services/preflight/PreflightService";
 
 export class ExtensionManager {
   private context: vscode.ExtensionContext;
@@ -18,6 +19,9 @@ export class ExtensionManager {
   private databaseProvider?: DatabaseProvider;
   private collectionHoverProvider?: CollectionHoverProvider;
 
+  // 预检查服务
+  private preflightService?: PreflightService;
+
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.rootPath = this.getRootPath();
@@ -28,24 +32,78 @@ export class ExtensionManager {
    */
   public async activate(): Promise<void> {
     try {
-      // 初始化提供器
+      // 1. 初始化预检查服务（不立即运行，等待 webview 请求）
+      this.initializePreflightService();
+
+      // 2. 初始化提供器
       this.initializeProviders();
 
-      // 初始化管理器
+      // 3. 将预检查服务设置到 FfProvider
+      if (this.ffProvider && this.preflightService) {
+        this.ffProvider.setPreflightService(this.preflightService);
+      }
+
+      // 4. 初始化管理器
       this.initializeManagers();
 
-      // 注册所有组件
+      // 5. 注册所有组件
       await this.registerComponents();
+
+      // 6. 注册预检查相关命令
+      this.registerPreflightCommands();
     } catch (error) {
       vscode.window.showErrorMessage(`seekdb-client 扩展激活失败: ${error}`);
     }
   }
 
   /**
+   * 初始化预检查服务
+   */
+  private initializePreflightService(): void {
+    // 获取用户配置
+    const config = vscode.workspace.getConfiguration("seekdb.preflight");
+    const enabled = config.get<boolean>("enabled", true);
+
+    if (!enabled) {
+      console.log("[SeekDB] 预检查已禁用");
+      return;
+    }
+
+    this.preflightService = new PreflightService(this.context);
+  }
+
+  /**
+   * 注册预检查相关命令
+   */
+  private registerPreflightCommands(): void {
+    if (!this.preflightService) {
+      return;
+    }
+
+    const preflightService = this.preflightService;
+
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand("seekdb.runPreflight", async () => {
+        await preflightService.runAllChecks(true);
+        await preflightService.showReportPanel();
+      }),
+      vscode.commands.registerCommand(
+        "seekdb.showPreflightReport",
+        async () => {
+          await preflightService.showReportPanel();
+        }
+      )
+    );
+  }
+
+  /**
    * 停用扩展
    */
   public deactivate(): void {
-    // 清理资源
+    // 清理预检查服务资源
+    if (this.preflightService) {
+      this.preflightService.dispose();
+    }
   }
 
   /**

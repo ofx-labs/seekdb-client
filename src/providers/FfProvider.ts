@@ -1,11 +1,17 @@
 import * as vscode from "vscode";
 import { DatabaseProvider } from "./DatabaseProvider";
+import { PreflightService } from "../services/preflight/PreflightService";
+import { PreflightReport, CheckResult } from "../services/preflight/types";
 
 export class FfProvider implements vscode.WebviewViewProvider {
   private webviewView?: vscode.WebviewView; // 添加WebView视图引用
   private databaseProvider: DatabaseProvider; // 添加DatabaseProvider引用
   // 保存上一次的已连接数据库ID集合，用于检测新连接
   private previousConnectedIds: Set<string> = new Set();
+  // 预检查服务引用
+  private preflightService?: PreflightService;
+  // 预检查是否通过
+  private preflightPassed: boolean = false;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // 初始化DatabaseProvider
@@ -196,10 +202,163 @@ export class FfProvider implements vscode.WebviewViewProvider {
           this.databaseProvider.clearWarnings();
           break;
 
+        // 预检查相关消息处理
+        case "getPreflightStatus":
+          this.handleGetPreflightStatus(webviewView);
+          break;
+
+        case "runPreflight":
+          this.handleRunPreflight(webviewView);
+          break;
+
+        case "preflightContinue":
+          this.handlePreflightContinue(webviewView);
+          break;
+
         default:
           break;
       }
     });
+  }
+
+  /**
+   * 设置预检查服务引用
+   */
+  public setPreflightService(service: PreflightService): void {
+    this.preflightService = service;
+  }
+
+  /**
+   * 处理获取预检查状态
+   */
+  private handleGetPreflightStatus(webviewView: vscode.WebviewView): void {
+    if (this.preflightPassed) {
+      // 如果已经通过预检查（用户已点击继续），直接通知前端
+      webviewView.webview.postMessage({
+        type: "preflightStatus",
+        data: { passed: true },
+      });
+    } else if (this.preflightService) {
+      // 每次都重新运行预检查，确保获取最新的环境状态
+      // 不使用缓存，因为环境可能已经发生变化（如容器启动/停止）
+      this.handleRunPreflight(webviewView);
+    } else {
+      // 预检查服务不存在（可能被禁用），直接通知前端开始检查流程
+      // 让前端显示预检查界面，用户可以选择跳过
+      webviewView.webview.postMessage({
+        type: "preflightStart",
+      });
+      // 如果没有预检查服务，模拟完成
+      webviewView.webview.postMessage({
+        type: "preflightComplete",
+        data: {
+          report: {
+            timestamp: new Date().toISOString(),
+            duration: 0,
+            system: {
+              os: { platform: "unknown", release: "", arch: "" },
+              node: { version: "" },
+              vscode: { version: "" },
+            },
+            checks: [],
+            overallStatus: "success",
+          },
+        },
+      });
+    }
+  }
+
+  /**
+   * 处理运行预检查
+   */
+  private async handleRunPreflight(
+    webviewView: vscode.WebviewView
+  ): Promise<void> {
+    if (!this.preflightService) {
+      webviewView.webview.postMessage({
+        type: "preflightStatus",
+        data: { passed: true },
+      });
+      return;
+    }
+
+    // 通知前端开始检查
+    webviewView.webview.postMessage({
+      type: "preflightStart",
+    });
+
+    try {
+      // 运行预检查（静默模式，不显示 VS Code 进度条）
+      const report = await this.preflightService.runAllChecks(false);
+
+      // 发送完成消息，不自动标记为通过，等待用户点击继续
+      webviewView.webview.postMessage({
+        type: "preflightComplete",
+        data: { report: this.serializeReport(report) },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      webviewView.webview.postMessage({
+        type: "preflightError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * 处理预检查继续
+   */
+  private handlePreflightContinue(webviewView: vscode.WebviewView): void {
+    this.preflightPassed = true;
+    // 通知前端切换到数据库连接视图
+    webviewView.webview.postMessage({
+      type: "preflightContinue",
+    });
+    // 发送数据库连接列表
+    webviewView.webview.postMessage({
+      type: "updateDatabaseConnections",
+      data: { connections: this.getDatabaseConnections() },
+    });
+  }
+
+  /**
+   * 序列化报告（转换 Date 等对象）
+   */
+  private serializeReport(report: PreflightReport): any {
+    return {
+      ...report,
+      timestamp:
+        report.timestamp instanceof Date
+          ? report.timestamp.toISOString()
+          : report.timestamp,
+    };
+  }
+
+  /**
+   * 发送预检查进度到 webview
+   */
+  public sendPreflightProgress(
+    currentCheck: string,
+    checks: CheckResult[]
+  ): void {
+    if (this.webviewView) {
+      this.webviewView.webview.postMessage({
+        type: "preflightProgress",
+        data: { currentCheck, checks },
+      });
+    }
+  }
+
+  /**
+   * 发送单项检查结果到 webview
+   */
+  public sendPreflightCheckResult(result: CheckResult): void {
+    if (this.webviewView) {
+      this.webviewView.webview.postMessage({
+        type: "preflightCheckResult",
+        data: { result },
+      });
+    }
   }
 
   /**

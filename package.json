@@ -29,6 +29,31 @@
           ],
           "default": "china",
           "description": "HuggingFace mirror URL"
+        },
+        "seekdb.preflight.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用启动时的环境预检查"
+        },
+        "seekdb.preflight.showProgress": {
+          "type": "boolean",
+          "default": true,
+          "description": "显示预检查进度通知"
+        },
+        "seekdb.preflight.checkDocker": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 Docker 环境是否可用"
+        },
+        "seekdb.preflight.checkSeekDBImage": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 SeekDB Docker 镜像是否存在"
+        },
+        "seekdb.preflight.checkSeekDBInstance": {
+          "type": "boolean",
+          "default": true,
+          "description": "检查 SeekDB 实例是否运行"
         }
       }
     },
@@ -54,6 +79,18 @@
         "command": "seekdb.openSettings",
         "title": "Open Settings",
         "icon": "$(settings-gear)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.runPreflight",
+        "title": "运行环境检查",
+        "icon": "$(checklist)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.showPreflightReport",
+        "title": "查看环境检查报告",
+        "icon": "$(output)",
         "category": "seekdb"
       }
     ],

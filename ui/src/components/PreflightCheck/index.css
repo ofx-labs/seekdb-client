@@ -1,0 +1,452 @@
+/* PreflightCheck 组件样式 */
+
+.preflight-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+}
+
+/* 头部 */
+.preflight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.preflight-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-foreground);
+}
+
+/* 内容区 */
+.preflight-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* 空闲状态 */
+.preflight-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.preflight-idle-icon {
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 16px;
+}
+
+.preflight-idle h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.preflight-idle p {
+  margin: 0 0 20px 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preflight-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.preflight-start-btn:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* 运行中状态 */
+.preflight-running {
+  padding: 20px;
+}
+
+.preflight-running-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.preflight-current-check {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 16px;
+}
+
+.preflight-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preflight-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--vscode-editorWidget-background);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.preflight-progress-item.success {
+  border-left: 3px solid var(--vscode-terminal-ansiGreen);
+}
+
+.preflight-progress-item.error {
+  border-left: 3px solid var(--vscode-errorForeground);
+}
+
+.preflight-progress-item.warning {
+  border-left: 3px solid #cca700;
+}
+
+.preflight-progress-item.pending,
+.preflight-progress-item.running {
+  border-left: 3px solid var(--vscode-focusBorder);
+}
+
+/* 完成状态 */
+.preflight-completed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 总体状态 */
+.preflight-overall-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.preflight-overall-status.success {
+  background-color: rgba(106, 153, 85, 0.15);
+  border: 1px solid rgba(106, 153, 85, 0.3);
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.preflight-overall-status.warning {
+  background-color: rgba(204, 167, 0, 0.15);
+  border: 1px solid rgba(204, 167, 0, 0.3);
+  color: #cca700;
+}
+
+.preflight-overall-status.error {
+  background-color: rgba(244, 135, 113, 0.15);
+  border: 1px solid rgba(244, 135, 113, 0.3);
+  color: var(--vscode-errorForeground);
+}
+
+/* 系统信息 */
+.preflight-system-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.preflight-system-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 检查列表 */
+.preflight-checks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 单个检查项 */
+.preflight-check-item {
+  background-color: var(--vscode-editorWidget-background);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.preflight-check-item.success {
+  border-left: 3px solid var(--vscode-terminal-ansiGreen);
+}
+
+.preflight-check-item.error {
+  border-left: 3px solid var(--vscode-errorForeground);
+}
+
+.preflight-check-item.warning {
+  border-left: 3px solid #cca700;
+}
+
+.preflight-check-item.info,
+.preflight-check-item.skipped {
+  border-left: 3px solid var(--vscode-focusBorder);
+}
+
+.preflight-check-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.preflight-check-header.expandable {
+  cursor: pointer;
+}
+
+.preflight-check-header.expandable:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.preflight-expand-icon {
+  color: var(--vscode-descriptionForeground);
+}
+
+.preflight-check-icon {
+  color: var(--vscode-descriptionForeground);
+}
+
+.preflight-check-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.preflight-check-status {
+  display: flex;
+  align-items: center;
+}
+
+.preflight-check-message {
+  padding: 0 12px 10px 36px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+}
+
+/* 状态图标 */
+.status-icon {
+  display: inline-flex;
+}
+
+.status-icon.success {
+  color: var(--vscode-terminal-ansiGreen);
+}
+
+.status-icon.error {
+  color: var(--vscode-errorForeground);
+}
+
+.status-icon.warning {
+  color: #cca700;
+}
+
+.status-icon.info {
+  color: var(--vscode-focusBorder);
+}
+
+.status-icon.skipped {
+  color: var(--vscode-descriptionForeground);
+}
+
+.status-icon.pending {
+  color: var(--vscode-focusBorder);
+}
+
+/* 旋转动画 */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 检查详情 */
+.preflight-check-details {
+  padding: 8px 12px 12px 36px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.preflight-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background-color: rgba(55, 148, 255, 0.1);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+}
+
+.preflight-suggestion svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.preflight-action {
+  margin-bottom: 8px;
+}
+
+.preflight-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--vscode-textLink-foreground);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preflight-action-link:hover {
+  background-color: var(--vscode-textLink-foreground);
+  color: var(--vscode-button-foreground);
+}
+
+.preflight-details-content {
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.preflight-detail-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.preflight-detail-key {
+  color: var(--vscode-descriptionForeground);
+  min-width: 80px;
+}
+
+.preflight-detail-value {
+  color: var(--vscode-foreground);
+  word-break: break-all;
+}
+
+/* 操作按钮 */
+.preflight-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.preflight-rerun-btn,
+.preflight-continue-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.preflight-rerun-btn {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.preflight-rerun-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.preflight-continue-btn {
+  flex: 1;
+  justify-content: center;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.preflight-continue-btn:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* 元信息 */
+.preflight-meta {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  padding-top: 8px;
+}
+
+/* 空状态 */
+.preflight-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.preflight-empty p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.preflight-run-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.preflight-run-btn:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}

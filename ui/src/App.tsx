@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import DatabaseConnections from "./components/DatabaseConnections/index";
+import PreflightCheck from "./components/PreflightCheck/index";
+
+/** 视图类型 */
+type ViewType = "showPreflight" | "showDatabaseConnections";
 
 const App = () => {
-  const [currentOpenView, setCurrentOpenView] = useState(
-    "showDatabaseConnections"
-  );
+  const [currentOpenView, setCurrentOpenView] =
+    useState<ViewType>("showPreflight");
+  const [preflightPassed, setPreflightPassed] = useState(false);
 
   // 初始化时
   useEffect(() => {
@@ -16,14 +20,49 @@ const App = () => {
       const message = event.data;
       console.log("App接收到消息:", message, new Date().toISOString());
 
-      // 处理从扩展发送过来的状态消息
-      if (
+      // 处理预检查相关消息
+      if (message.type === "preflightComplete") {
+        // 预检查完成 - 不自动设置 passed，等待用户点击继续
+        // 预检查完成后保持在预检查页面显示结果
+        console.log("预检查完成，等待用户确认");
+        setCurrentOpenView("showPreflight");
+      } else if (message.type === "preflightStart") {
+        // 预检查开始
+        console.log("预检查开始");
+        setCurrentOpenView("showPreflight");
+      } else if (message.type === "preflightReport") {
+        // 接收到预检查报告（从缓存加载）
+        console.log("接收到预检查报告");
+        setCurrentOpenView("showPreflight");
+      } else if (
+        message.type === "preflightContinue" ||
+        message.type === "skipPreflight"
+      ) {
+        // 用户点击继续或跳过预检查
+        console.log("用户确认继续");
+        setPreflightPassed(true);
+        setCurrentOpenView("showDatabaseConnections");
+      } else if (message.type === "showPreflight") {
+        // 显示预检查视图
+        setCurrentOpenView("showPreflight");
+      } else if (
         message.type === "openDatabase" ||
         message.type === "updateDatabaseConnections"
       ) {
-        // 显示数据库连接列表
-        console.log("收到显示数据库连接列表消息");
-        setCurrentOpenView("showDatabaseConnections");
+        // 显示数据库连接列表（只在预检查通过后）
+        console.log(
+          "收到显示数据库连接列表消息, preflightPassed:",
+          preflightPassed
+        );
+        if (preflightPassed) {
+          setCurrentOpenView("showDatabaseConnections");
+        }
+      } else if (message.type === "preflightStatus") {
+        // 接收预检查状态（从缓存恢复时用户之前已确认通过）
+        if (message.data?.passed) {
+          setPreflightPassed(true);
+          setCurrentOpenView("showDatabaseConnections");
+        }
       }
     };
 
@@ -32,7 +71,7 @@ const App = () => {
     return () => {
       window.removeEventListener("message", messageListener);
     };
-  }, []);
+  }, [preflightPassed]);
 
   // 应用VS Code主题
   const applyVSCodeTheme = () => {
@@ -57,10 +96,22 @@ const App = () => {
 
   // 定义要显示的主要内容
   const renderMainContent = useCallback(() => {
-    console.log("渲染主要内容, 当前视图:", currentOpenView);
+    console.log(
+      "渲染主要内容, 当前视图:",
+      currentOpenView,
+      "预检查通过:",
+      preflightPassed
+    );
+
+    // 如果预检查未通过，显示预检查视图
+    if (!preflightPassed && currentOpenView === "showPreflight") {
+      return <PreflightCheck key="preflight-check-component" />;
+    }
 
     // 确保渲染的组件有唯一的key，强制在切换时重新创建实例
     switch (currentOpenView) {
+      case "showPreflight":
+        return <PreflightCheck key="preflight-check-component" />;
       case "showDatabaseConnections":
         return <DatabaseConnections key="database-connections-component" />;
       default:
@@ -68,7 +119,7 @@ const App = () => {
           <DatabaseConnections key="database-connections-default-component" />
         );
     }
-  }, [currentOpenView]);
+  }, [currentOpenView, preflightPassed]);
 
   return (
     <div className="app-container">
