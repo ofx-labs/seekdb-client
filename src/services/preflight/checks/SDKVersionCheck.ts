@@ -1,5 +1,5 @@
 /**
- * SeekDB SDK 版本检查器
+ * SeekDB SDK Version Checker
  */
 
 import * as vscode from "vscode";
@@ -10,12 +10,12 @@ import { IPreflightChecker, CheckResult } from "../types";
 
 export class SDKVersionCheck implements IPreflightChecker {
   id = "sdk-version";
-  name = "SeekDB SDK 版本检查";
+  name = "SDK Version Check";
 
   constructor(private context: vscode.ExtensionContext) {}
 
   /**
-   * 从 npm registry 获取最新版本
+   * Get latest version from npm registry
    */
   private async getLatestVersion(): Promise<string | null> {
     return new Promise((resolve) => {
@@ -54,10 +54,10 @@ export class SDKVersionCheck implements IPreflightChecker {
   }
 
   /**
-   * 比较版本号
+   * Compare version numbers
    */
   private compareVersions(v1: string, v2: string): number {
-    // 清理版本号中的前缀符号
+    // Clean version number prefixes
     const clean1 = v1.replace(/[\^~>=<]/g, "").split("-")[0];
     const clean2 = v2.replace(/[\^~>=<]/g, "").split("-")[0];
 
@@ -75,7 +75,7 @@ export class SDKVersionCheck implements IPreflightChecker {
 
   async check(): Promise<CheckResult> {
     try {
-      // 读取扩展的 package.json 获取当前使用的 SDK 版本
+      // Read extension package.json to get current SDK version
       const extensionPackagePath = path.join(
         this.context.extensionPath,
         "package.json"
@@ -86,7 +86,7 @@ export class SDKVersionCheck implements IPreflightChecker {
           id: this.id,
           name: this.name,
           status: "warning",
-          message: "无法读取扩展配置文件",
+          message: "Unable to read extension config file",
         };
       }
 
@@ -96,7 +96,7 @@ export class SDKVersionCheck implements IPreflightChecker {
       const installedVersion = packageJson.dependencies?.seekdb || "unknown";
       const extensionVersion = packageJson.version || "unknown";
 
-      // 尝试获取最新版本
+      // Try to get latest version
       const latestVersion = await this.getLatestVersion();
 
       const details: Record<string, any> = {
@@ -108,7 +108,7 @@ export class SDKVersionCheck implements IPreflightChecker {
       if (latestVersion) {
         details.latestVersion = latestVersion;
 
-        // 比较版本
+        // Compare versions
         const installedClean = installedVersion.replace(/[\^~>=<]/g, "");
         const comparison = this.compareVersions(installedClean, latestVersion);
 
@@ -117,9 +117,10 @@ export class SDKVersionCheck implements IPreflightChecker {
             id: this.id,
             name: this.name,
             status: "info",
-            message: `SDK 版本: ${installedVersion} (最新: ${latestVersion})`,
+            message: `SDK Version: ${installedVersion} (Latest: ${latestVersion})`,
             details,
-            suggestion: "有新版本可用，建议更新扩展以获取最新功能",
+            suggestion:
+              "New version available, consider updating for latest features",
           };
         }
 
@@ -127,17 +128,17 @@ export class SDKVersionCheck implements IPreflightChecker {
           id: this.id,
           name: this.name,
           status: "success",
-          message: `SDK 版本: ${installedVersion} (已是最新)`,
+          message: `SDK Version: ${installedVersion} (Up to date)`,
           details,
         };
       }
 
-      // 无法获取最新版本信息
+      // Unable to get latest version info
       return {
         id: this.id,
         name: this.name,
         status: "success",
-        message: `SDK 版本: ${installedVersion}`,
+        message: `SDK Version: ${installedVersion}`,
         details,
       };
     } catch (error) {
@@ -146,7 +147,7 @@ export class SDKVersionCheck implements IPreflightChecker {
         id: this.id,
         name: this.name,
         status: "warning",
-        message: `无法获取 SDK 版本信息: ${errorMsg}`,
+        message: `Unable to get SDK version info: ${errorMsg}`,
       };
     }
   }

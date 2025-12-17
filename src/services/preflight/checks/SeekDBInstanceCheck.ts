@@ -1,5 +1,5 @@
 /**
- * SeekDB 实例检查器 - 检查 SeekDB 是否在运行
+ * SeekDB Instance Checker - Check if SeekDB is running
  */
 
 import { exec } from "child_process";
@@ -9,17 +9,17 @@ import { IPreflightChecker, CheckResult, DockerContainerInfo } from "../types";
 
 const execAsync = promisify(exec);
 
-// SeekDB 默认端口
+// SeekDB default port
 const SEEKDB_DEFAULT_PORT = 2881;
-// 备选检查端口 (MySQL 兼容端口)
+// Alternative ports (MySQL compatible)
 const SEEKDB_ALT_PORTS = [3306, 2883];
 
 export class SeekDBInstanceCheck implements IPreflightChecker {
   id = "seekdb-instance";
-  name = "SeekDB 实例检查";
+  name = "SeekDB Instance Check";
 
   /**
-   * 检查端口是否可连接
+   * Check if port is connectable
    */
   private async checkPort(
     port: number,
@@ -49,11 +49,11 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
   }
 
   /**
-   * 获取 Docker 中的 SeekDB 容器
+   * Get SeekDB containers from Docker
    */
   private async getSeekDBContainers(): Promise<DockerContainerInfo[]> {
     try {
-      // 搜索包含 seekdb 或 oceanbase 关键字的容器
+      // Search containers with seekdb or oceanbase keywords
       const { stdout } = await execAsync(
         'docker ps -a --format "{{.Names}}|{{.Status}}|{{.Ports}}|{{.Image}}"',
         { timeout: 5000 }
@@ -64,7 +64,7 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
 
       for (const line of lines) {
         const [name, status, ports, image] = line.split("|");
-        // 检查容器名或镜像名是否包含 seekdb/oceanbase
+        // Check if container name or image contains seekdb/oceanbase
         if (
           name.toLowerCase().includes("seekdb") ||
           name.toLowerCase().includes("oceanbase") ||
@@ -85,7 +85,7 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
     const details: Record<string, any> = {};
     const portsStatus: { port: number; open: boolean }[] = [];
 
-    // 1. 检查默认端口和备选端口
+    // 1. Check default and alternative ports
     const allPorts = [SEEKDB_DEFAULT_PORT, ...SEEKDB_ALT_PORTS];
     for (const port of allPorts) {
       const open = await this.checkPort(port);
@@ -99,7 +99,7 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
       (p) => p.port === SEEKDB_DEFAULT_PORT
     )?.open;
 
-    // 2. 检查 Docker 容器中的 SeekDB 实例
+    // 2. Check SeekDB instances in Docker containers
     const containers = await this.getSeekDBContainers();
     details.containers = containers;
 
@@ -110,15 +110,15 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
       (c) => !c.status.toLowerCase().includes("up")
     );
 
-    // 3. 综合判断（按优先级排序）
+    // 3. Evaluate (by priority)
 
-    // 3.1 有运行中的 SeekDB 容器 - 最佳状态
+    // 3.1 Running SeekDB containers - best state
     if (runningContainers.length > 0) {
       return {
         id: this.id,
         name: this.name,
         status: "success",
-        message: `发现 ${runningContainers.length} 个运行中的 SeekDB 容器`,
+        message: `Found ${runningContainers.length} running SeekDB container(s)`,
         details: {
           ...details,
           runningContainers: runningContainers.map((c) => ({
@@ -130,24 +130,24 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
       };
     }
 
-    // 3.2 默认端口有服务 - 可能是本地安装的 SeekDB
+    // 3.2 Default port has service - may be local SeekDB
     if (defaultPortOpen) {
       return {
         id: this.id,
         name: this.name,
         status: "success",
-        message: `端口 ${SEEKDB_DEFAULT_PORT} 有服务监听（可能是本地 SeekDB 实例）`,
+        message: `Port ${SEEKDB_DEFAULT_PORT} has service listening (possibly local SeekDB)`,
         details,
       };
     }
 
-    // 3.3 有已停止的 SeekDB 容器 - 需要用户启动（优先于其他端口检查）
+    // 3.3 Stopped SeekDB containers - needs user to start (priority over other ports)
     if (stoppedContainers.length > 0) {
       return {
         id: this.id,
         name: this.name,
         status: "warning",
-        message: `发现 ${stoppedContainers.length} 个已停止的 SeekDB 容器`,
+        message: `Found ${stoppedContainers.length} stopped SeekDB container(s)`,
         details: {
           ...details,
           stoppedContainers: stoppedContainers.map((c) => ({
@@ -155,32 +155,32 @@ export class SeekDBInstanceCheck implements IPreflightChecker {
             status: c.status,
           })),
         },
-        suggestion: `使用 docker start ${stoppedContainers[0].name} 启动容器`,
+        suggestion: `Run docker start ${stoppedContainers[0].name} to start the container`,
       };
     }
 
-    // 3.4 其他端口有服务但不是 SeekDB
+    // 3.4 Other ports have services but not SeekDB
     if (openPorts.length > 0) {
       return {
         id: this.id,
         name: this.name,
         status: "info",
-        message: `检测到端口 ${openPorts
+        message: `Detected services on port(s) ${openPorts
           .map((p) => p.port)
-          .join(", ")} 有服务，但非 SeekDB 默认端口`,
+          .join(", ")}, but not SeekDB default port`,
         details,
-        suggestion: `SeekDB 默认使用端口 ${SEEKDB_DEFAULT_PORT}，当前端口可能是其他服务`,
+        suggestion: `SeekDB uses port ${SEEKDB_DEFAULT_PORT} by default, current ports may be other services`,
       };
     }
 
-    // 3.5 没有发现任何 SeekDB 相关服务
+    // 3.5 No SeekDB related services found
     return {
       id: this.id,
       name: this.name,
       status: "info",
-      message: "未检测到 SeekDB 实例",
+      message: "No SeekDB instance detected",
       details,
-      suggestion: "您可以通过 Docker 安装并启动 SeekDB 实例",
+      suggestion: "You can install and start SeekDB using Docker",
     };
   }
 }

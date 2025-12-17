@@ -1,5 +1,5 @@
 /**
- * 预检查服务 - 管理所有环境检查
+ * Preflight Service - Manages all environment checks
  */
 
 import * as vscode from "vscode";
@@ -27,7 +27,7 @@ export class PreflightService {
   private outputChannel: vscode.OutputChannel;
 
   constructor(private context: vscode.ExtensionContext) {
-    // 初始化状态栏项
+    // Initialize status bar item
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
       100
@@ -35,26 +35,26 @@ export class PreflightService {
     this.statusBarItem.command = "seekdb.showPreflightReport";
     this.context.subscriptions.push(this.statusBarItem);
 
-    // 初始化输出通道
-    this.outputChannel = vscode.window.createOutputChannel("SeekDB 环境检查");
+    // Initialize output channel
+    this.outputChannel = vscode.window.createOutputChannel("SeekDB Preflight");
     this.context.subscriptions.push(this.outputChannel);
 
-    // 注册所有检查器
+    // Register all checkers
     this.registerCheckers();
   }
 
   /**
-   * 注册所有检查器
+   * Register all checkers
    */
   private registerCheckers(): void {
     const config = this.getConfig();
 
     this.checkers = [
-      // 系统检查始终执行
+      // System check always runs
       new SystemCheck(),
     ];
 
-    // 根据配置添加可选检查器
+    // Add optional checkers based on config
     if (config.checkDocker) {
       this.checkers.push(new DockerCheck());
     }
@@ -67,12 +67,12 @@ export class PreflightService {
       this.checkers.push(new SeekDBInstanceCheck());
     }
 
-    // SDK 版本检查始终执行
+    // SDK version check always runs
     this.checkers.push(new SDKVersionCheck(this.context));
   }
 
   /**
-   * 获取预检查配置
+   * Get preflight configuration
    */
   private getConfig(): PreflightConfig {
     const config = vscode.workspace.getConfiguration("seekdb.preflight");
@@ -86,7 +86,7 @@ export class PreflightService {
   }
 
   /**
-   * 获取系统信息
+   * Get system information
    */
   private getSystemInfo(): SystemInfo {
     return {
@@ -105,20 +105,20 @@ export class PreflightService {
   }
 
   /**
-   * 运行所有预检查
+   * Run all preflight checks
    */
   async runAllChecks(showProgress: boolean = true): Promise<PreflightReport> {
     const startTime = Date.now();
     const results: CheckResult[] = [];
 
-    // 重新注册检查器（配置可能已更改）
+    // Re-register checkers (config may have changed)
     this.registerCheckers();
 
     if (showProgress) {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "SeekDB 环境检查",
+          title: "SeekDB Preflight Check",
           cancellable: false,
         },
         async (progress) => {
@@ -127,7 +127,7 @@ export class PreflightService {
             const checker = this.checkers[i];
             progress.report({
               increment: 100 / total,
-              message: `正在检查: ${checker.name}...`,
+              message: `Checking: ${checker.name}...`,
             });
 
             try {
@@ -140,14 +140,14 @@ export class PreflightService {
                 id: checker.id,
                 name: checker.name,
                 status: "error",
-                message: `检查失败: ${errorMsg}`,
+                message: `Check failed: ${errorMsg}`,
               });
             }
           }
         }
       );
     } else {
-      // 静默检查
+      // Silent check
       for (const checker of this.checkers) {
         try {
           const result = await checker.check();
@@ -159,13 +159,13 @@ export class PreflightService {
             id: checker.id,
             name: checker.name,
             status: "error",
-            message: `检查失败: ${errorMsg}`,
+            message: `Check failed: ${errorMsg}`,
           });
         }
       }
     }
 
-    // 计算总体状态
+    // Calculate overall status
     const overallStatus = this.calculateOverallStatus(results);
 
     this.report = {
@@ -176,17 +176,17 @@ export class PreflightService {
       overallStatus,
     };
 
-    // 更新状态栏
+    // Update status bar
     this.updateStatusBar(overallStatus);
 
-    // 缓存报告
+    // Cache report
     await this.cacheReport();
 
     return this.report;
   }
 
   /**
-   * 计算总体状态
+   * Calculate overall status
    */
   private calculateOverallStatus(results: CheckResult[]): CheckStatus {
     if (results.some((r) => r.status === "error")) {
@@ -199,7 +199,7 @@ export class PreflightService {
   }
 
   /**
-   * 更新状态栏显示
+   * Update status bar display
    */
   private updateStatusBar(status: CheckStatus): void {
     const icons: Record<CheckStatus, string> = {
@@ -211,15 +211,15 @@ export class PreflightService {
     };
 
     const statusText: Record<CheckStatus, string> = {
-      success: "就绪",
-      warning: "警告",
-      error: "错误",
-      info: "信息",
-      skipped: "跳过",
+      success: "Ready",
+      warning: "Warning",
+      error: "Error",
+      info: "Info",
+      skipped: "Skipped",
     };
 
     this.statusBarItem.text = `${icons[status]} SeekDB`;
-    this.statusBarItem.tooltip = `SeekDB 环境状态: ${statusText[status]}\n点击查看详细报告`;
+    this.statusBarItem.tooltip = `SeekDB Status: ${statusText[status]}\nClick to view report`;
 
     // 设置背景色
     if (status === "error") {
@@ -238,11 +238,11 @@ export class PreflightService {
   }
 
   /**
-   * 缓存检查报告
+   * Cache check report
    */
   private async cacheReport(): Promise<void> {
     if (this.report) {
-      // 转换 Date 为 ISO 字符串以便序列化
+      // Convert Date to ISO string for serialization
       const serializedReport = {
         ...this.report,
         timestamp: this.report.timestamp.toISOString(),
@@ -255,7 +255,7 @@ export class PreflightService {
   }
 
   /**
-   * 获取缓存的报告
+   * Get cached report
    */
   getCachedReport(): PreflightReport | null {
     const cached = this.context.globalState.get<any>("preflightReport");
@@ -269,24 +269,24 @@ export class PreflightService {
   }
 
   /**
-   * 获取最新报告
+   * Get latest report
    */
   getReport(): PreflightReport | null {
     return this.report;
   }
 
   /**
-   * 显示报告面板
+   * Show report panel
    */
   async showReportPanel(): Promise<void> {
     const report = this.report || this.getCachedReport();
     if (!report) {
       const action = await vscode.window.showInformationMessage(
-        "暂无检查报告，是否立即运行检查？",
-        "运行检查",
-        "取消"
+        "No check report available. Run check now?",
+        "Run Check",
+        "Cancel"
       );
-      if (action === "运行检查") {
+      if (action === "Run Check") {
         await this.runAllChecks();
         await this.showReportPanel();
       }
@@ -297,42 +297,44 @@ export class PreflightService {
     this.outputChannel.appendLine(
       "═══════════════════════════════════════════════════════════════"
     );
-    this.outputChannel.appendLine("                    SeekDB 环境预检查报告");
+    this.outputChannel.appendLine(
+      "                    SeekDB Preflight Report"
+    );
     this.outputChannel.appendLine(
       "═══════════════════════════════════════════════════════════════"
     );
     this.outputChannel.appendLine("");
     this.outputChannel.appendLine(
-      `📅 检查时间: ${report.timestamp.toLocaleString()}`
+      `📅 Check Time: ${report.timestamp.toLocaleString()}`
     );
-    this.outputChannel.appendLine(`⏱️  耗时: ${report.duration}ms`);
+    this.outputChannel.appendLine(`⏱️  Duration: ${report.duration}ms`);
     this.outputChannel.appendLine("");
     this.outputChannel.appendLine(
       "───────────────────────────────────────────────────────────────"
     );
-    this.outputChannel.appendLine("                        系统信息");
+    this.outputChannel.appendLine("                      System Information");
     this.outputChannel.appendLine(
       "───────────────────────────────────────────────────────────────"
     );
     this.outputChannel.appendLine(
-      `  🖥️  操作系统: ${this.getPlatformName(report.system.os.platform)} ${
+      `  🖥️  OS: ${this.getPlatformName(report.system.os.platform)} ${
         report.system.os.release
       }`
     );
     this.outputChannel.appendLine(
-      `  💻 芯片架构: ${this.getArchName(report.system.os.arch)}`
+      `  💻 Architecture: ${this.getArchName(report.system.os.arch)}`
     );
     this.outputChannel.appendLine(
-      `  📦 Node 版本: ${report.system.node.version}`
+      `  📦 Node Version: ${report.system.node.version}`
     );
     this.outputChannel.appendLine(
-      `  🔷 VS Code 版本: ${report.system.vscode.version}`
+      `  🔷 VS Code Version: ${report.system.vscode.version}`
     );
     this.outputChannel.appendLine("");
     this.outputChannel.appendLine(
       "───────────────────────────────────────────────────────────────"
     );
-    this.outputChannel.appendLine("                        检查结果");
+    this.outputChannel.appendLine("                        Check Results");
     this.outputChannel.appendLine(
       "───────────────────────────────────────────────────────────────"
     );
@@ -346,11 +348,11 @@ export class PreflightService {
     };
 
     const statusNames: Record<CheckStatus, string> = {
-      success: "通过",
-      warning: "警告",
-      error: "错误",
-      info: "信息",
-      skipped: "跳过",
+      success: "Passed",
+      warning: "Warning",
+      error: "Error",
+      info: "Info",
+      skipped: "Skipped",
     };
 
     for (const check of report.checks) {
@@ -358,19 +360,23 @@ export class PreflightService {
       this.outputChannel.appendLine(
         `  ${statusIcons[check.status]} ${check.name}`
       );
-      this.outputChannel.appendLine(`     状态: ${statusNames[check.status]}`);
-      this.outputChannel.appendLine(`     消息: ${check.message}`);
+      this.outputChannel.appendLine(
+        `     Status: ${statusNames[check.status]}`
+      );
+      this.outputChannel.appendLine(`     Message: ${check.message}`);
 
       if (check.suggestion) {
-        this.outputChannel.appendLine(`     💡 建议: ${check.suggestion}`);
+        this.outputChannel.appendLine(
+          `     💡 Suggestion: ${check.suggestion}`
+        );
       }
 
       if (check.actionUrl) {
-        this.outputChannel.appendLine(`     🔗 链接: ${check.actionUrl}`);
+        this.outputChannel.appendLine(`     🔗 Link: ${check.actionUrl}`);
       }
 
       if (check.details) {
-        this.outputChannel.appendLine(`     📋 详情:`);
+        this.outputChannel.appendLine(`     📋 Details:`);
         this.formatDetails(check.details, "        ");
       }
     }
@@ -380,7 +386,7 @@ export class PreflightService {
       "═══════════════════════════════════════════════════════════════"
     );
     this.outputChannel.appendLine(
-      `                总体状态: ${
+      `                Overall Status: ${
         statusIcons[report.overallStatus]
       } ${statusNames[report.overallStatus].toUpperCase()}`
     );
@@ -392,7 +398,7 @@ export class PreflightService {
   }
 
   /**
-   * 格式化详情输出
+   * Format details output
    */
   private formatDetails(details: Record<string, any>, indent: string): void {
     for (const [key, value] of Object.entries(details)) {
@@ -417,7 +423,7 @@ export class PreflightService {
   }
 
   /**
-   * 获取平台友好名称
+   * Get platform friendly name
    */
   private getPlatformName(platform: string): string {
     const names: Record<string, string> = {
@@ -429,7 +435,7 @@ export class PreflightService {
   }
 
   /**
-   * 获取架构友好名称
+   * Get architecture friendly name
    */
   private getArchName(arch: string): string {
     const names: Record<string, string> = {
@@ -442,21 +448,21 @@ export class PreflightService {
   }
 
   /**
-   * 隐藏状态栏
+   * Hide status bar
    */
   hideStatusBar(): void {
     this.statusBarItem.hide();
   }
 
   /**
-   * 显示状态栏
+   * Show status bar
    */
   showStatusBar(): void {
     this.statusBarItem.show();
   }
 
   /**
-   * 销毁服务
+   * Dispose service
    */
   dispose(): void {
     this.statusBarItem.dispose();

@@ -18,7 +18,7 @@ import {
 import { vscode } from "../../utils/vscode";
 import "./index.css";
 
-/** 检查状态 */
+/** Check status */
 type CheckStatus =
   | "success"
   | "warning"
@@ -28,7 +28,7 @@ type CheckStatus =
   | "pending"
   | "running";
 
-/** 单项检查结果 */
+/** Single check result */
 interface CheckResult {
   id: string;
   name: string;
@@ -39,7 +39,7 @@ interface CheckResult {
   actionUrl?: string;
 }
 
-/** 系统信息 */
+/** System information */
 interface SystemInfo {
   os: {
     platform: string;
@@ -54,7 +54,7 @@ interface SystemInfo {
   };
 }
 
-/** 预检查报告 */
+/** Preflight report */
 interface PreflightReport {
   timestamp: string;
   duration: number;
@@ -63,10 +63,10 @@ interface PreflightReport {
   overallStatus: CheckStatus;
 }
 
-/** 预检查状态 */
+/** Preflight state */
 type PreflightState = "idle" | "running" | "completed";
 
-/** 状态图标映射 */
+/** Status icon mapping */
 const StatusIcon: React.FC<{ status: CheckStatus; size?: number }> = ({
   status,
   size = 16,
@@ -90,7 +90,7 @@ const StatusIcon: React.FC<{ status: CheckStatus; size?: number }> = ({
   }
 };
 
-/** 检查项图标映射 */
+/** Check icon mapping */
 const CheckIcon: React.FC<{ checkId: string; size?: number }> = ({
   checkId,
   size = 16,
@@ -112,7 +112,7 @@ const CheckIcon: React.FC<{ checkId: string; size?: number }> = ({
 };
 
 /**
- * PreflightCheck - 预检查视图组件
+ * PreflightCheck - Preflight check view component
  */
 function PreflightCheck() {
   const [state, setState] = useState<PreflightState>("idle");
@@ -128,14 +128,14 @@ function PreflightCheck() {
 
       switch (message.type) {
         case "preflightStart":
-          // 开始预检查
+          // Start preflight check
           setState("running");
           setChecks([]);
           setReport(null);
           break;
 
         case "preflightProgress":
-          // 更新检查进度
+          // Update check progress
           if (message.data) {
             setCurrentCheck(message.data.currentCheck || "");
             if (message.data.checks) {
@@ -145,7 +145,7 @@ function PreflightCheck() {
           break;
 
         case "preflightCheckResult":
-          // 单项检查完成
+          // Single check completed
           if (message.data?.result) {
             setChecks((prev) => {
               const existing = prev.find(
@@ -162,7 +162,7 @@ function PreflightCheck() {
           break;
 
         case "preflightComplete":
-          // 检查完成
+          // Check completed
           setState("completed");
           if (message.data?.report) {
             setReport(message.data.report);
@@ -171,7 +171,7 @@ function PreflightCheck() {
           break;
 
         case "preflightReport":
-          // 接收完整报告（初始加载或刷新）
+          // Receive full report (initial load or refresh)
           setState("completed");
           if (message.data?.report) {
             setReport(message.data.report);
@@ -183,7 +183,7 @@ function PreflightCheck() {
 
     window.addEventListener("message", handleMessage);
 
-    // 请求初始预检查状态
+    // Request initial preflight status
     vscode.postMessage({ type: "getPreflightStatus" });
 
     return () => {
@@ -191,14 +191,14 @@ function PreflightCheck() {
     };
   }, []);
 
-  // 重新运行检查
+  // Re-run checks
   const handleRerunChecks = () => {
     setState("running");
     setChecks([]);
     vscode.postMessage({ type: "runPreflight" });
   };
 
-  // 切换检查项展开状态
+  // Toggle check item expand state
   const toggleCheckExpand = (checkId: string) => {
     setExpandedChecks((prev) => {
       const next = new Set(prev);
@@ -211,7 +211,7 @@ function PreflightCheck() {
     });
   };
 
-  // 打开外部链接
+  // Open external link
   const openExternalLink = (url: string) => {
     vscode.postMessage({
       type: "openBrowser",
@@ -219,26 +219,26 @@ function PreflightCheck() {
     });
   };
 
-  // 继续到数据库连接页面
+  // Continue to database connection page
   const handleContinue = () => {
     vscode.postMessage({ type: "preflightContinue" });
   };
 
-  // 获取总体状态文本
+  // Get overall status text
   const getOverallStatusText = (status: CheckStatus): string => {
     switch (status) {
       case "success":
-        return "所有检查通过";
+        return "All checks passed";
       case "warning":
-        return "检查完成，有警告";
+        return "Checks completed with warnings";
       case "error":
-        return "检查发现问题";
+        return "Checks found issues";
       default:
-        return "检查完成";
+        return "Checks completed";
     }
   };
 
-  // 渲染单个检查项
+  // Render single check item
   const renderCheckItem = (check: CheckResult) => {
     const isExpanded = expandedChecks.has(check.id);
     const hasDetails = check.details && Object.keys(check.details).length > 0;
@@ -291,7 +291,7 @@ function PreflightCheck() {
                   }}
                 >
                   <ExternalLink size={12} />
-                  <span>查看文档</span>
+                  <span>View Docs</span>
                 </button>
               </div>
             )}
@@ -315,15 +315,15 @@ function PreflightCheck() {
     );
   };
 
-  // 渲染运行中状态
+  // Render running state
   const renderRunningState = () => (
     <div className="preflight-running">
       <div className="preflight-running-header">
         <Loader size={24} className="spinning" />
-        <span>正在检查环境...</span>
+        <span>Checking environment...</span>
       </div>
       {currentCheck && (
-        <div className="preflight-current-check">当前检查: {currentCheck}</div>
+        <div className="preflight-current-check">Current: {currentCheck}</div>
       )}
       <div className="preflight-progress">
         {checks.map((check) => (
@@ -339,15 +339,15 @@ function PreflightCheck() {
     </div>
   );
 
-  // 渲染完成状态
+  // Render completed state
   const renderCompletedState = () => {
     if (!report) {
       return (
         <div className="preflight-empty">
-          <p>暂无检查结果</p>
+          <p>No check results</p>
           <button className="preflight-run-btn" onClick={handleRerunChecks}>
             <RefreshCw size={14} />
-            <span>运行检查</span>
+            <span>Run Check</span>
           </button>
         </div>
       );
@@ -357,13 +357,13 @@ function PreflightCheck() {
 
     return (
       <div className="preflight-completed">
-        {/* 总体状态 */}
+        {/* Overall status */}
         <div className={`preflight-overall-status ${report.overallStatus}`}>
           <StatusIcon status={report.overallStatus} size={20} />
           <span>{getOverallStatusText(report.overallStatus)}</span>
         </div>
 
-        {/* 系统信息 */}
+        {/* System info */}
         <div className="preflight-system-info">
           <div className="preflight-system-item">
             <Monitor size={14} />
@@ -382,60 +382,62 @@ function PreflightCheck() {
           </div>
         </div>
 
-        {/* 检查列表 */}
+        {/* Check list */}
         <div className="preflight-checks-list">
           {checks.map(renderCheckItem)}
         </div>
 
-        {/* 操作按钮 */}
+        {/* Action buttons */}
         <div className="preflight-actions">
           <button
             className="preflight-rerun-btn"
             onClick={handleRerunChecks}
-            title="重新检查"
+            title="Re-run checks"
           >
             <RefreshCw size={14} />
-            <span>重新检查</span>
+            <span>Re-run</span>
           </button>
           {canContinue && (
             <button className="preflight-continue-btn" onClick={handleContinue}>
-              <span>继续</span>
+              <span>Continue</span>
               <ChevronRight size={14} />
             </button>
           )}
         </div>
 
-        {/* 检查时间 */}
-        <div className="preflight-meta">检查耗时: {report.duration}ms</div>
+        {/* Check duration */}
+        <div className="preflight-meta">Duration: {report.duration}ms</div>
       </div>
     );
   };
 
-  // 渲染空闲状态（首次加载）
+  // Render idle state (first load)
   const renderIdleState = () => (
     <div className="preflight-idle">
       <div className="preflight-idle-icon">
         <Monitor size={32} />
       </div>
-      <h3>环境预检查</h3>
-      <p>在使用 SeekDB 之前，我们需要检查您的环境配置</p>
+      <h3>Environment Preflight</h3>
+      <p>
+        Before using SeekDB, we need to check your environment configuration
+      </p>
       <button className="preflight-start-btn" onClick={handleRerunChecks}>
         <RefreshCw size={14} />
-        <span>开始检查</span>
+        <span>Start Check</span>
       </button>
     </div>
   );
 
   return (
     <div className="preflight-container">
-      {/* 头部 */}
+      {/* Header */}
       <div className="preflight-header">
         <h3>
-          <Monitor size={16} /> 环境检查
+          <Monitor size={16} /> Preflight Check
         </h3>
       </div>
 
-      {/* 内容区 */}
+      {/* Content */}
       <div className="preflight-content">
         {state === "idle" && renderIdleState()}
         {state === "running" && renderRunningState()}

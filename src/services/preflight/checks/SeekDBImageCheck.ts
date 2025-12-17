@@ -1,5 +1,5 @@
 /**
- * SeekDB 镜像检查器
+ * SeekDB Image Checker
  */
 
 import { exec } from "child_process";
@@ -8,20 +8,20 @@ import { IPreflightChecker, CheckResult } from "../types";
 
 const execAsync = promisify(exec);
 
-// SeekDB 相关镜像模式
+// SeekDB related image patterns
 const SEEKDB_IMAGE_PATTERNS = [
   "seekdb/seekdb",
   "seekdb",
-  "oceanbase/oceanbase-ce", // OceanBase 兼容
+  "oceanbase/oceanbase-ce", // OceanBase compatible
   "oceanbase",
 ];
 
 export class SeekDBImageCheck implements IPreflightChecker {
   id = "seekdb-image";
-  name = "SeekDB 镜像检查";
+  name = "SeekDB Image Check";
 
   async check(): Promise<CheckResult> {
-    // 首先检查 Docker 是否可用
+    // First check if Docker is available
     try {
       await execAsync("docker info", { timeout: 5000 });
     } catch {
@@ -29,13 +29,13 @@ export class SeekDBImageCheck implements IPreflightChecker {
         id: this.id,
         name: this.name,
         status: "skipped",
-        message: "Docker 不可用，跳过镜像检查",
-        suggestion: "请先安装并启动 Docker",
+        message: "Docker unavailable, skipping image check",
+        suggestion: "Please install and start Docker first",
       };
     }
 
     try {
-      // 获取所有镜像
+      // Get all images
       const { stdout } = await execAsync(
         'docker images --format "{{.Repository}}:{{.Tag}}|{{.Size}}|{{.CreatedSince}}"',
         {
@@ -45,7 +45,7 @@ export class SeekDBImageCheck implements IPreflightChecker {
 
       const lines = stdout.trim().split("\n").filter(Boolean);
 
-      // 查找 SeekDB 相关镜像
+      // Find SeekDB related images
       const seekdbImages = lines
         .map((line) => {
           const [fullTag, size, created] = line.split("|");
@@ -66,7 +66,7 @@ export class SeekDBImageCheck implements IPreflightChecker {
           id: this.id,
           name: this.name,
           status: "success",
-          message: `找到 ${seekdbImages.length} 个 SeekDB 相关镜像`,
+          message: `Found ${seekdbImages.length} SeekDB related image(s)`,
           details: {
             images: seekdbImages.map((img) => ({
               name: img.fullTag,
@@ -80,9 +80,9 @@ export class SeekDBImageCheck implements IPreflightChecker {
           id: this.id,
           name: this.name,
           status: "info",
-          message: "未找到 SeekDB 相关镜像",
+          message: "No SeekDB images found",
           suggestion:
-            "可使用 docker pull seekdb/seekdb:latest 拉取 SeekDB 镜像",
+            "Run docker pull seekdb/seekdb:latest to pull SeekDB image",
           actionUrl: "https://hub.docker.com/r/seekdb/seekdb",
         };
       }
@@ -92,7 +92,7 @@ export class SeekDBImageCheck implements IPreflightChecker {
         id: this.id,
         name: this.name,
         status: "warning",
-        message: `镜像检查失败: ${errorMsg}`,
+        message: `Image check failed: ${errorMsg}`,
       };
     }
   }

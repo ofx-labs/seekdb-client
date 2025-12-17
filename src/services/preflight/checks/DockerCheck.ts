@@ -1,5 +1,5 @@
 /**
- * Docker 环境检查器
+ * Docker Environment Checker
  */
 
 import { exec } from "child_process";
@@ -10,18 +10,18 @@ const execAsync = promisify(exec);
 
 export class DockerCheck implements IPreflightChecker {
   id = "docker";
-  name = "Docker 环境检查";
+  name = "Docker Check";
 
   async check(): Promise<CheckResult> {
     try {
-      // 检查 Docker 是否安装
+      // Check if Docker is installed
       const { stdout: versionOutput } = await execAsync("docker --version", {
         timeout: 5000,
       });
 
       const dockerVersion = versionOutput.trim();
 
-      // 检查 Docker 是否运行
+      // Check if Docker is running
       try {
         const { stdout: infoOutput } = await execAsync(
           'docker info --format "{{.ServerVersion}}"',
@@ -32,7 +32,7 @@ export class DockerCheck implements IPreflightChecker {
 
         const serverVersion = infoOutput.trim();
 
-        // 获取更多 Docker 信息
+        // Get more Docker info
         let dockerInfo: Record<string, string> = {};
         try {
           const { stdout: osType } = await execAsync(
@@ -48,14 +48,14 @@ export class DockerCheck implements IPreflightChecker {
             architecture: osArch.trim(),
           };
         } catch {
-          // 忽略获取额外信息失败
+          // Ignore extra info fetch failure
         }
 
         return {
           id: this.id,
           name: this.name,
           status: "success",
-          message: "Docker 已安装并正在运行",
+          message: "Docker is installed and running",
           details: {
             clientVersion: dockerVersion,
             serverVersion,
@@ -67,11 +67,11 @@ export class DockerCheck implements IPreflightChecker {
           id: this.id,
           name: this.name,
           status: "warning",
-          message: "Docker 已安装但未运行",
+          message: "Docker is installed but not running",
           details: {
             clientVersion: dockerVersion,
           },
-          suggestion: "请启动 Docker Desktop 或 Docker 服务",
+          suggestion: "Please start Docker Desktop or Docker service",
           actionUrl: "https://docs.docker.com/get-docker/",
         };
       }
@@ -80,8 +80,8 @@ export class DockerCheck implements IPreflightChecker {
         id: this.id,
         name: this.name,
         status: "info",
-        message: "Docker 未安装",
-        suggestion: "如需使用 Docker 部署 SeekDB，请先安装 Docker",
+        message: "Docker is not installed",
+        suggestion: "To deploy SeekDB with Docker, please install Docker first",
         actionUrl: "https://docs.docker.com/get-docker/",
       };
     }
