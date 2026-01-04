@@ -438,3 +438,165 @@
     transform: rotate(360deg);
   }
 }
+
+/* OceanBase Cloud 帮助 Tooltip 样式 */
+.help-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  margin-left: 4px;
+}
+
+.help-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.help-icon-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.help-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 340px;
+  background: var(--header-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  animation: tooltipFadeIn 0.2s ease;
+}
+
+.help-tooltip::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--border-color);
+}
+
+.help-tooltip::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid var(--header-bg);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--info-color);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tooltip-content {
+  padding: 12px 14px;
+}
+
+.tooltip-step {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tooltip-step:last-child {
+  margin-bottom: 0;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  background: var(--button-bg);
+  color: white;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tooltip-step strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 2px;
+}
+
+.tooltip-step p {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888888);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.tooltip-step code {
+  background: var(--input-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  color: var(--info-color);
+}
+
+.tooltip-links {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0 0 8px 8px;
+}
+
+.tooltip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: rgba(0, 120, 212, 0.15);
+  border: none;
+  border-radius: 4px;
+  color: var(--info-color);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tooltip-link:hover {
+  background: rgba(0, 120, 212, 0.25);
+}

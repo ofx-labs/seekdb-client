@@ -256,6 +256,13 @@ export class DatabaseProvider {
   }
 
   /**
+   * Check if connection is OceanBase Cloud type
+   */
+  private isOceanBaseCloudConnection(connection: DatabaseConnection): boolean {
+    return connection.type === "oceanbase-cloud";
+  }
+
+  /**
    * Set connection change callback
    */
   public onConnectionsChanged(
@@ -423,6 +430,14 @@ export class DatabaseProvider {
           }
           throw connError;
         }
+      } else if (this.isOceanBaseCloudConnection(connection)) {
+        // OceanBase Cloud connection - use MySQL compatible mode
+        await this.testOceanBaseCloudConnection(connection);
+        connection.connected = true;
+        this.addWarning(
+          "info",
+          `Successfully connected to OceanBase Cloud: ${connection.name}`
+        );
       } else {
         // Non-SeekDB type, use mock connection
         connection.connected = true;
@@ -497,6 +512,38 @@ export class DatabaseProvider {
   }
 
   /**
+   * Test OceanBase Cloud connection using MySQL compatible mode
+   */
+  private async testOceanBaseCloudConnection(
+    connection: DatabaseConnection
+  ): Promise<void> {
+    const mysql = await import("mysql2/promise");
+
+    // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
+    const userString = connection.tenant
+      ? `${connection.user}@${connection.tenant}`
+      : connection.user;
+
+    const conn = await mysql.createConnection({
+      host: connection.host,
+      port: connection.port,
+      user: userString,
+      password: connection.password,
+      database: connection.database || "test",
+      connectTimeout: 10000,
+    });
+
+    try {
+      // Test connection by executing a simple query
+      await conn.execute("SELECT 1");
+      await conn.end();
+    } catch (error) {
+      await conn.end();
+      throw error;
+    }
+  }
+
+  /**
    * Test connection
    */
   private async testConnection(data: any): Promise<void> {
@@ -540,6 +587,41 @@ export class DatabaseProvider {
         });
         vscode.window.showErrorMessage(errorMessage);
       }
+    } else if (data.type === "oceanbase-cloud") {
+      // OceanBase Cloud connection test
+      try {
+        const testConnection: DatabaseConnection = {
+          id: "test",
+          name: "test",
+          type: "oceanbase-cloud",
+          host: data.host,
+          port: data.port || 2881,
+          user: data.user,
+          password: data.password,
+          database: data.database,
+          tenant: data.tenant,
+          connected: false,
+        };
+
+        await this.testOceanBaseCloudConnection(testConnection);
+
+        this.panel?.webview.postMessage({
+          type: "testResult",
+          data: { success: true },
+        });
+        vscode.window.showInformationMessage("Connection test successful!");
+      } catch (error) {
+        let errorMessage = "Connection test failed";
+        if (error instanceof Error) {
+          errorMessage = `OceanBase Cloud connection error: ${error.message}`;
+        }
+
+        this.panel?.webview.postMessage({
+          type: "testResult",
+          data: { success: false, error: errorMessage },
+        });
+        vscode.window.showErrorMessage(errorMessage);
+      }
     } else {
       // Non-SeekDB type, use simulated test
       setTimeout(() => {
@@ -562,6 +644,12 @@ export class DatabaseProvider {
       if (this.isSeekDBConnection(connection)) {
         await this.closeSeekDBClients(connectionId);
         this.addWarning("info", `Disconnected from seekdb: ${connection.name}`);
+      } else if (this.isOceanBaseCloudConnection(connection)) {
+        // OceanBase Cloud connections are stateless, just mark as disconnected
+        this.addWarning(
+          "info",
+          `Disconnected from OceanBase Cloud: ${connection.name}`
+        );
       }
 
       connection.connected = false;
@@ -847,10 +935,13 @@ export class DatabaseProvider {
       this.collectionPanels.delete(connectionId);
     });
 
-    // If it's a SeekDB connection, load real collections list immediately
-    if (this.isSeekDBConnection(connection)) {
+    // If it's a SeekDB or OceanBase Cloud connection, load real collections list immediately
+    if (
+      this.isSeekDBConnection(connection) ||
+      this.isOceanBaseCloudConnection(connection)
+    ) {
       console.log(
-        "[DatabaseProvider] openCollectionBrowser: isSeekDB, will refresh collections in 100ms"
+        `[DatabaseProvider] openCollectionBrowser: ${connection.type}, will refresh collections in 100ms`
       );
       // Delay a bit to ensure webview is fully loaded
       setTimeout(async () => {
@@ -870,7 +961,7 @@ export class DatabaseProvider {
       }, 100);
     } else {
       console.log(
-        "[DatabaseProvider] openCollectionBrowser: not SeekDB, skipping initial refresh"
+        "[DatabaseProvider] openCollectionBrowser: not SeekDB or OceanBase Cloud, skipping initial refresh"
       );
     }
   }
@@ -1203,10 +1294,33 @@ export class DatabaseProvider {
   ): Promise<void> {
     const startTime = Date.now();
 
-    // If it's SeekDB type, execute real query
+    // If it's SeekDB or OceanBase Cloud type, execute real query
     if (this.isSeekDBConnection(connection)) {
       try {
         const result = await this.executeSeekDBQuery(connection.id, sql);
+        const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
+
+        panel.webview.postMessage({
+          type: "queryResult",
+          data: {
+            ...result,
+            executionTime: `${executionTime}s`,
+          },
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.addWarning("error", `SQL execution failed: ${errorMsg}`);
+        panel.webview.postMessage({
+          type: "queryError",
+          data: { error: errorMsg },
+        });
+      }
+    } else if (this.isOceanBaseCloudConnection(connection)) {
+      try {
+        const result = await this.executeOceanBaseCloudQuery(
+          connection.id,
+          sql
+        );
         const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
 
         panel.webview.postMessage({
@@ -1231,6 +1345,79 @@ export class DatabaseProvider {
         type: "queryResult",
         data: mockData,
       });
+    }
+  }
+
+  /**
+   * Execute OceanBase Cloud SQL query using MySQL compatible mode
+   */
+  private async executeOceanBaseCloudQuery(
+    connectionId: string,
+    sql: string
+  ): Promise<QueryResultData> {
+    const connection = this.connections.find((c) => c.id === connectionId);
+    if (!connection) {
+      throw new Error("Connection does not exist");
+    }
+
+    const mysql = await import("mysql2/promise");
+
+    // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
+    const userString = connection.tenant
+      ? `${connection.user}@${connection.tenant}`
+      : connection.user;
+
+    const conn = await mysql.createConnection({
+      host: connection.host,
+      port: connection.port,
+      user: userString,
+      password: connection.password,
+      database: connection.database || "test",
+      connectTimeout: 10000,
+    });
+
+    try {
+      const [rows, fields] = await conn.execute(sql);
+
+      // Parse results - fields may be undefined or ResultSetHeader for DDL statements
+      const columns = Array.isArray(fields)
+        ? (fields as any[]).map((field: any) => ({
+            name: field.name,
+            type: this.mysqlTypeToString(field.type, field.length),
+          }))
+        : [];
+
+      // Sort columns: put metadata before embedding-related columns
+      const embeddingColumns = ["embedding", "_vector", "vector", "embeddings"];
+      const sortedColumns = this.sortColumnsWithMetadataFirst(
+        columns,
+        embeddingColumns
+      );
+
+      const resultRows = Array.isArray(rows) ? (rows as any[]) : [];
+
+      // Convert Buffer fields to strings (for BLOB/BINARY types like _id)
+      const processedRows = resultRows.map((row) => {
+        const processedRow: Record<string, any> = {};
+        for (const [key, value] of Object.entries(row)) {
+          if (Buffer.isBuffer(value)) {
+            // Convert Buffer to UTF-8 string
+            processedRow[key] = value.toString("utf-8");
+          } else {
+            processedRow[key] = value;
+          }
+        }
+        return processedRow;
+      });
+
+      return {
+        columns: sortedColumns,
+        rows: processedRows,
+        rowCount: processedRows.length,
+        executionTime: "0s",
+      };
+    } finally {
+      await conn.end();
     }
   }
 
@@ -1427,6 +1614,30 @@ export class DatabaseProvider {
           data: { error: errorMsg },
         });
       }
+    } else if (this.isOceanBaseCloudConnection(connection)) {
+      try {
+        // 构建 SELECT 查询
+        const sql = `SELECT * FROM \`${collectionName}\` LIMIT 1000`;
+        const result = await this.executeOceanBaseCloudQuery(
+          connection.id,
+          sql
+        );
+
+        panel.webview.postMessage({
+          type: "collectionData",
+          data: {
+            collectionName,
+            ...result,
+          },
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.addWarning("error", `Failed to load collection data: ${errorMsg}`);
+        panel.webview.postMessage({
+          type: "queryError",
+          data: { error: errorMsg },
+        });
+      }
     } else {
       // Non-SeekDB type, use mock data
       const mockData = this.getMockCollectionData(collectionName);
@@ -1449,12 +1660,38 @@ export class DatabaseProvider {
   ): Promise<void> {
     console.log(
       "[DatabaseProvider] refreshCollections called, isSeekDB:",
-      this.isSeekDBConnection(connection)
+      this.isSeekDBConnection(connection),
+      "isOceanBaseCloud:",
+      this.isOceanBaseCloudConnection(connection)
     );
     if (this.isSeekDBConnection(connection)) {
       try {
         console.log("[DatabaseProvider] Getting SeekDB collections...");
         const collections = await this.getSeekDBCollections(connection);
+        console.log("[DatabaseProvider] Got collections:", collections.length);
+        panel.webview.postMessage({
+          type: "collectionsList",
+          data: { collections },
+        });
+        console.log("[DatabaseProvider] Sent collectionsList message");
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(
+          "[DatabaseProvider] Error getting collections:",
+          errorMsg
+        );
+        this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
+        panel.webview.postMessage({
+          type: "collectionsError",
+          data: { error: errorMsg },
+        });
+      }
+    } else if (this.isOceanBaseCloudConnection(connection)) {
+      try {
+        console.log(
+          "[DatabaseProvider] Getting OceanBase Cloud collections..."
+        );
+        const collections = await this.getOceanBaseCloudCollections(connection);
         console.log("[DatabaseProvider] Got collections:", collections.length);
         panel.webview.postMessage({
           type: "collectionsList",
@@ -1481,6 +1718,44 @@ export class DatabaseProvider {
         type: "collectionsList",
         data: { collections: mockCollections },
       });
+    }
+  }
+
+  /**
+   * Get OceanBase Cloud collections list (tables)
+   */
+  private async getOceanBaseCloudCollections(
+    connection: DatabaseConnection
+  ): Promise<CollectionInfo[]> {
+    const mysql = await import("mysql2/promise");
+
+    // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
+    const userString = connection.tenant
+      ? `${connection.user}@${connection.tenant}`
+      : connection.user;
+
+    const conn = await mysql.createConnection({
+      host: connection.host,
+      port: connection.port,
+      user: userString,
+      password: connection.password,
+      database: connection.database || "test",
+      connectTimeout: 10000,
+    });
+
+    try {
+      const [rows] = await conn.execute("SHOW TABLES");
+      const collections = (rows as any[]).map((row: any) => {
+        const collectionName = Object.values(row)[0] as string;
+        return {
+          name: collectionName,
+          type: "collection",
+        };
+      });
+
+      return collections;
+    } finally {
+      await conn.end();
     }
   }
 
