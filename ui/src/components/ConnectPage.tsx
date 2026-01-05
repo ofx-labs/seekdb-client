@@ -45,7 +45,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
-  
+
   // Tooltip 显示状态
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -71,6 +71,15 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     socksPort: 1080,
     httpProxyUrl: "",
   });
+
+  // 切换数据库类型时更新默认端口
+  useEffect(() => {
+    if (currentDbType === "oceanbase-cloud") {
+      setFormData((prev) => ({ ...prev, port: 3306 }));
+    } else {
+      setFormData((prev) => ({ ...prev, port: defaultConfig.port }));
+    }
+  }, [currentDbType, defaultConfig.port]);
 
   // 点击外部关闭 tooltip
   useEffect(() => {
@@ -180,10 +189,17 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   const dbTypes: { type: DbType; label: string; icon: React.ReactNode }[] = [
     { type: "seekdb", label: "seekdb", icon: <Search size={16} /> },
     { type: "nero", label: "Nero", icon: <Zap size={16} /> },
-    { type: "oceanbase-cloud", label: "OceanBase Cloud", icon: <Cloud size={16} /> },
+    {
+      type: "oceanbase-cloud",
+      label: "OceanBase Cloud",
+      icon: <Cloud size={16} />,
+    },
   ];
 
-  const showTenant = currentDbType === "seekdb" || currentDbType === "nero" || currentDbType === "oceanbase-cloud";
+  const showTenant =
+    currentDbType === "seekdb" ||
+    currentDbType === "nero" ||
+    currentDbType === "oceanbase-cloud";
 
   return (
     <div className="connect-page">
@@ -194,7 +210,10 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
           </div>
           <div>
             <h1>Connect to Server</h1>
-            <p>Connect to seekdb, Nero, OceanBase Cloud, or other database servers</p>
+            <p>
+              Connect to seekdb, Nero, OceanBase Cloud, or other database
+              servers
+            </p>
           </div>
         </div>
 
@@ -280,68 +299,88 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
               >
                 {icon} {label}
                 {/* OceanBase Cloud 帮助图标 */}
-                {type === "oceanbase-cloud" && currentDbType === "oceanbase-cloud" && (
-                  <span className="help-icon-wrapper">
-                    <button
-                      ref={helpBtnRef}
-                      className="help-icon-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowHelpTooltip(!showHelpTooltip);
-                      }}
-                      title="Connection Guide"
-                    >
-                      <HelpCircle size={14} />
-                    </button>
-                    {showHelpTooltip && (
-                      <div ref={tooltipRef} className="help-tooltip">
-                        <div className="tooltip-header">
-                          <HelpCircle size={14} />
-                          <span>OceanBase Cloud Connection Guide</span>
-                        </div>
-                        <div className="tooltip-content">
-                          <div className="tooltip-step">
-                            <span className="step-num">1</span>
-                            <div>
-                              <strong>Get Connection Info</strong>
-                              <p>Log in to OceanBase Cloud console and get the Host and Port from the instance details page.</p>
+                {type === "oceanbase-cloud" &&
+                  currentDbType === "oceanbase-cloud" && (
+                    <span className="help-icon-wrapper">
+                      <button
+                        ref={helpBtnRef}
+                        className="help-icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowHelpTooltip(!showHelpTooltip);
+                        }}
+                        title="Connection Guide"
+                      >
+                        <HelpCircle size={14} />
+                      </button>
+                      {showHelpTooltip && (
+                        <div ref={tooltipRef} className="help-tooltip">
+                          <div className="tooltip-header">
+                            <HelpCircle size={14} />
+                            <span>OceanBase Cloud Connection Guide</span>
+                          </div>
+                          <div className="tooltip-content">
+                            <div className="tooltip-step">
+                              <span className="step-num">1</span>
+                              <div>
+                                <strong>Get Connection Info</strong>
+                                <p>
+                                  Log in to OceanBase Cloud console and get the
+                                  Host and Port from the instance details page.
+                                </p>
+                              </div>
+                            </div>
+                            <div className="tooltip-step">
+                              <span className="step-num">2</span>
+                              <div>
+                                <strong>Configure Username</strong>
+                                <p>
+                                  Username format: <code>username@tenant</code>{" "}
+                                  (e.g., <code>root@tenant1</code>). Or fill
+                                  Username and Tenant fields separately.
+                                </p>
+                              </div>
+                            </div>
+                            <div className="tooltip-step">
+                              <span className="step-num">3</span>
+                              <div>
+                                <strong>Network Configuration</strong>
+                                <p>
+                                  Ensure network access to OceanBase Cloud.
+                                  Configure PrivateLink, VPC, or IP allowlist if
+                                  needed.
+                                </p>
+                              </div>
                             </div>
                           </div>
-                          <div className="tooltip-step">
-                            <span className="step-num">2</span>
-                            <div>
-                              <strong>Configure Username</strong>
-                              <p>Username format: <code>username@tenant</code> (e.g., <code>root@tenant1</code>). Or fill Username and Tenant fields separately.</p>
-                            </div>
-                          </div>
-                          <div className="tooltip-step">
-                            <span className="step-num">3</span>
-                            <div>
-                              <strong>Network Configuration</strong>
-                              <p>Ensure network access to OceanBase Cloud. Configure PrivateLink, VPC, or IP allowlist if needed.</p>
-                            </div>
+                          <div className="tooltip-links">
+                            <button
+                              className="tooltip-link"
+                              onClick={() =>
+                                openExternalLink(
+                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-10000000000768633"
+                                )
+                              }
+                            >
+                              <ExternalLink size={12} />
+                              Documentation
+                            </button>
+                            <button
+                              className="tooltip-link"
+                              onClick={() =>
+                                openExternalLink(
+                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-1000000001817313"
+                                )
+                              }
+                            >
+                              <ExternalLink size={12} />
+                              MySQL Guide
+                            </button>
                           </div>
                         </div>
-                        <div className="tooltip-links">
-                          <button
-                            className="tooltip-link"
-                            onClick={() => openExternalLink("https://en.oceanbase.com/docs/common-oceanbase-cloud-10000000000768633")}
-                          >
-                            <ExternalLink size={12} />
-                            Documentation
-                          </button>
-                          <button
-                            className="tooltip-link"
-                            onClick={() => openExternalLink("https://en.oceanbase.com/docs/common-oceanbase-cloud-1000000001817313")}
-                          >
-                            <ExternalLink size={12} />
-                            MySQL Guide
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </span>
-                )}
+                      )}
+                    </span>
+                  )}
               </button>
             ))}
           </div>

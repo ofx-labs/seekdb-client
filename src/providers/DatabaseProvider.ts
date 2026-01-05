@@ -520,9 +520,10 @@ export class DatabaseProvider {
     const mysql = await import("mysql2/promise");
 
     // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
-    const userString = connection.tenant
-      ? `${connection.user}@${connection.tenant}`
-      : connection.user;
+    // const userString = connection.host
+    //   ? `${connection.user}@${connection.host}`
+    //   : connection.user;
+    const userString = connection.user;
 
     const conn = await mysql.createConnection({
       host: connection.host,

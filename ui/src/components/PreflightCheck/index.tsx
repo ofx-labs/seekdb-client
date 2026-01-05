@@ -167,6 +167,10 @@ function PreflightCheck() {
           if (message.data?.report) {
             setReport(message.data.report);
             setChecks(message.data.report.checks || []);
+            // Auto-continue if all checks passed
+            if (message.data.report.overallStatus === "success") {
+              vscode.postMessage({ type: "preflightContinue" });
+            }
           }
           break;
 
@@ -176,6 +180,10 @@ function PreflightCheck() {
           if (message.data?.report) {
             setReport(message.data.report);
             setChecks(message.data.report.checks || []);
+            // Auto-continue if all checks passed
+            if (message.data.report.overallStatus === "success") {
+              vscode.postMessage({ type: "preflightContinue" });
+            }
           }
           break;
       }
