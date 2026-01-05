@@ -216,7 +216,6 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
 
   const dbTypes: { type: DbType; label: string; icon: React.ReactNode }[] = [
     { type: "seekdb", label: "seekdb", icon: <Search size={16} /> },
-    { type: "nero", label: "Nero", icon: <Zap size={16} /> },
     {
       type: "oceanbase-cloud",
       label: "OceanBase Cloud",
@@ -238,10 +237,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
           </div>
           <div>
             <h1>Connect to Server</h1>
-            <p>
-              Connect to seekdb, Nero, OceanBase Cloud, or other database
-              servers
-            </p>
+            <p>Connect to seekdb, OceanBase Cloud, or other database servers</p>
           </div>
         </div>
 
