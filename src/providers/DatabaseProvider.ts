@@ -1363,10 +1363,8 @@ export class DatabaseProvider {
 
     const mysql = await import("mysql2/promise");
 
-    // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
-    const userString = connection.tenant
-      ? `${connection.user}@${connection.tenant}`
-      : connection.user;
+    // OceanBase Cloud uses plain username (not user@tenant format)
+    const userString = connection.user;
 
     const conn = await mysql.createConnection({
       host: connection.host,
@@ -1730,10 +1728,8 @@ export class DatabaseProvider {
   ): Promise<CollectionInfo[]> {
     const mysql = await import("mysql2/promise");
 
-    // Build user string: if tenant is provided, use format "user@tenant", otherwise just "user"
-    const userString = connection.tenant
-      ? `${connection.user}@${connection.tenant}`
-      : connection.user;
+    // OceanBase Cloud uses plain username (not user@tenant format)
+    const userString = connection.user;
 
     const conn = await mysql.createConnection({
       host: connection.host,
@@ -2307,6 +2303,7 @@ export class DatabaseProvider {
     connection: DatabaseConnection
   ): string {
     const isSeekDB = this.isSeekDBConnection(connection);
+    const isOceanBaseCloud = this.isOceanBaseCloudConnection(connection);
 
     // Inject configuration into page
     const config = {
@@ -2317,6 +2314,7 @@ export class DatabaseProvider {
         database: connection.database,
       },
       __VSCODE_IS_SEEKDB__: isSeekDB,
+      __VSCODE_IS_OCEANBASE_CLOUD__: isOceanBaseCloud,
     };
 
     return this.htmlLoader.loadPage(webview, "CollectionBrowserPage", config);

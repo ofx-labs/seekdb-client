@@ -17,9 +17,11 @@ const connectionInfo = window.__VSCODE_CONNECTION_INFO__ || {
 };
 
 const isSeekDB = window.__VSCODE_IS_SEEKDB__ || false;
+const isOceanBaseCloud = window.__VSCODE_IS_OCEANBASE_CLOUD__ || false;
 
 console.log('[CollectionBrowserPage Entry] connectionInfo:', connectionInfo);
 console.log('[CollectionBrowserPage Entry] isSeekDB:', isSeekDB);
+console.log('[CollectionBrowserPage Entry] isOceanBaseCloud:', isOceanBaseCloud);
 
 const root = createRoot(document.getElementById("root")!);
 root.render(
@@ -27,5 +29,6 @@ root.render(
     vscode={vscode}
     connectionInfo={connectionInfo}
     isSeekDB={isSeekDB}
+    isOceanBaseCloud={isOceanBaseCloud}
   />
 );

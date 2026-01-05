@@ -43,6 +43,7 @@ interface CollectionBrowserPageProps {
   };
   connectionInfo: ConnectionInfo;
   isSeekDB: boolean;
+  isOceanBaseCloud?: boolean;
 }
 
 interface Collection {
@@ -70,6 +71,7 @@ declare global {
   interface Window {
     __VSCODE_CONNECTION_INFO__?: ConnectionInfo;
     __VSCODE_IS_SEEKDB__?: boolean;
+    __VSCODE_IS_OCEANBASE_CLOUD__?: boolean;
   }
 }
 
@@ -80,7 +82,11 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   vscode,
   connectionInfo: initialConnectionInfo,
   isSeekDB,
+  isOceanBaseCloud: initialIsOceanBaseCloud,
 }) => {
+  // 从 window 对象获取配置（如果通过 HTML 注入）
+  const isOceanBaseCloud =
+    initialIsOceanBaseCloud ?? window.__VSCODE_IS_OCEANBASE_CLOUD__ ?? false;
   // 使用 state 管理 connectionInfo，支持动态更新
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>(
     initialConnectionInfo
@@ -90,8 +96,8 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     null
   );
   const [query, setQuery] = useState<string>(
-    isSeekDB
-      ? "-- Select a collection on the left to view data, or enter a SQL query"
+    isSeekDB || isOceanBaseCloud
+      ? "-- Select a table on the left to view data, or enter a SQL query"
       : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`"
   );
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
@@ -517,10 +523,10 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       vscode.postMessage({ type: "getSavedQueries" });
     }, 50);
 
-    if (isSeekDB) {
-      // seekdb connection: actively request collections list
+    if (isSeekDB || isOceanBaseCloud) {
+      // seekdb or oceanbase-cloud connection: actively request collections/tables list
       console.log(
-        "[CollectionBrowser] isSeekDB=true, requesting collections..."
+        `[CollectionBrowser] isSeekDB=${isSeekDB}, isOceanBaseCloud=${isOceanBaseCloud}, requesting collections/tables...`
       );
       setLoading(true);
       // Delay to ensure event listener is registered
@@ -537,7 +543,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
         handleExecuteQuery();
       }, 200);
     }
-  }, [isSeekDB]);
+  }, [isSeekDB, isOceanBaseCloud]);
 
   const handleExecuteQuery = () => {
     const sql = query.trim();
