@@ -127,8 +127,8 @@ export class FfProvider implements vscode.WebviewViewProvider {
 
         case "connectToDatabase":
           if (message.data) {
-            // 重新连接数据库
-            this.databaseProvider.openConnectPage();
+            // 重新连接数据库，传递保存的连接信息
+            this.databaseProvider.openConnectPage(message.data);
           }
           break;
 

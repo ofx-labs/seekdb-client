@@ -299,13 +299,23 @@ export class DatabaseProvider {
 
   /**
    * Open database connection page (new tab)
+   * @param savedConnection Optional saved connection to restore/edit
    */
-  public openConnectPage(): void {
-    console.log("DatabaseProvider.openConnectPage called");
+  public openConnectPage(savedConnection?: DatabaseConnection): void {
+    console.log("DatabaseProvider.openConnectPage called", savedConnection);
 
-    // If panel already exists, show it
+    // If panel already exists, show it and send saved connection data
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.One);
+      // If a saved connection is provided, send it to the webview to restore
+      if (savedConnection) {
+        setTimeout(() => {
+          this.panel?.webview.postMessage({
+            type: "restoreConnection",
+            data: savedConnection,
+          });
+        }, 100);
+      }
       return;
     }
 
@@ -337,16 +347,28 @@ export class DatabaseProvider {
       ),
     };
 
-    // Get default values from config
+    // Get default values from config or use saved connection
     const config = vscode.workspace.getConfiguration("seekdb");
-    const defaultConfig = {
-      host: config.get("database.defaultHost", "127.0.0.1"),
-      port: config.get("database.defaultPort", 2881),
-      tenant: config.get("database.defaultTenant", "sys"),
-      database: config.get("database.defaultDatabase", "test"),
-      user: config.get("database.defaultUser", "root"),
-      password: "",
-    };
+    const defaultConfig = savedConnection
+      ? {
+          id: savedConnection.id,
+          connectionName: savedConnection.name,
+          type: savedConnection.type,
+          host: savedConnection.host,
+          port: savedConnection.port,
+          tenant: savedConnection.tenant || "",
+          database: savedConnection.database || "",
+          user: savedConnection.user,
+          password: savedConnection.password || "",
+        }
+      : {
+          host: config.get("database.defaultHost", "127.0.0.1"),
+          port: config.get("database.defaultPort", 2881),
+          tenant: config.get("database.defaultTenant", "sys"),
+          database: config.get("database.defaultDatabase", "test"),
+          user: config.get("database.defaultUser", "root"),
+          password: "",
+        };
 
     // Set HTML content
     this.panel.webview.html = this.getConnectPageHtml(
@@ -383,6 +405,10 @@ export class DatabaseProvider {
         break;
       case "close":
         this.panel?.dispose();
+        break;
+      case "openBrowser":
+        // Open external URL in browser
+        vscode.env.openExternal(vscode.Uri.parse(message.data.url));
         break;
     }
   }

@@ -17,6 +17,9 @@ import {
 import "./ConnectPage.css";
 
 interface DefaultConfig {
+  id?: string;
+  connectionName?: string;
+  type?: string;
   host: string;
   port: number;
   tenant: string;
@@ -37,7 +40,9 @@ type ConfigTab = "main" | "ssh" | "socks" | "http";
 type Scope = "advance" | "scope" | "global" | "workspace";
 
 const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
-  const [currentDbType, setCurrentDbType] = useState<DbType>("seekdb");
+  // Determine initial db type from saved connection or default to seekdb
+  const initialDbType = (defaultConfig.type as DbType) || "seekdb";
+  const [currentDbType, setCurrentDbType] = useState<DbType>(initialDbType);
   const [currentConfigTab, setCurrentConfigTab] = useState<ConfigTab>("main");
   const [currentScope, setCurrentScope] = useState<Scope>("global");
   const [loading, setLoading] = useState(false);
@@ -45,15 +50,19 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
+  // Store connection id for editing existing connections
+  const [connectionId, setConnectionId] = useState<string | undefined>(
+    defaultConfig.id
+  );
 
   // Tooltip 显示状态
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const helpBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Form state
+  // Form state - initialize from defaultConfig (may contain saved connection data)
   const [formData, setFormData] = useState({
-    connectionName: "",
+    connectionName: defaultConfig.connectionName || "",
     group: "",
     host: defaultConfig.host,
     port: defaultConfig.port,
@@ -118,6 +127,24 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
             msg.data?.success ? "Test successful!" : "Test failed"
           );
           break;
+        case "restoreConnection":
+          // Restore saved connection data to form
+          if (msg.data) {
+            const conn = msg.data;
+            setConnectionId(conn.id);
+            setCurrentDbType((conn.type as DbType) || "seekdb");
+            setFormData((prev) => ({
+              ...prev,
+              connectionName: conn.name || "",
+              host: conn.host || "",
+              port: conn.port || 2881,
+              user: conn.user || "",
+              password: conn.password || "",
+              tenant: conn.tenant || "",
+              database: conn.database || "",
+            }));
+          }
+          break;
       }
     };
 
@@ -143,6 +170,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
 
   const getFormData = () => {
     return {
+      id: connectionId,
       type: currentDbType,
       scope: currentScope,
       ...formData,
