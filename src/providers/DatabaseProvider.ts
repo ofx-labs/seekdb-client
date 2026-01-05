@@ -1115,6 +1115,23 @@ export class DatabaseProvider {
         case "createDocument":
           await this.handleCreateDocument(message.data, panel, connection);
           break;
+        // OceanBase Cloud table operations
+        case "createTable":
+          await this.handleCreateTable(message.data, panel, connection);
+          break;
+        case "deleteTable":
+          await this.handleDeleteTable(message.data, panel, connection);
+          break;
+        // OceanBase Cloud row operations
+        case "createRow":
+          await this.handleCreateRow(message.data, panel, connection);
+          break;
+        case "updateRow":
+          await this.handleUpdateRow(message.data, panel, connection);
+          break;
+        case "deleteRow":
+          await this.handleDeleteRow(message.data, panel, connection);
+          break;
       }
     } catch (error) {
       // Global error handler for all collection browser messages
@@ -1136,12 +1153,29 @@ export class DatabaseProvider {
           data: { error: errorMsg },
         });
       } else if (
+        message.type === "deleteRow" ||
+        message.type === "updateRow" ||
+        message.type === "createRow"
+      ) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: errorMsg },
+        });
+      } else if (
         message.type === "createCollection" ||
         message.type === "deleteCollection" ||
         message.type === "renameCollection"
       ) {
         panel.webview.postMessage({
           type: "collectionError",
+          data: { error: errorMsg },
+        });
+      } else if (
+        message.type === "createTable" ||
+        message.type === "deleteTable"
+      ) {
+        panel.webview.postMessage({
+          type: "tableError",
           data: { error: errorMsg },
         });
       } else {
@@ -3055,6 +3089,395 @@ export class DatabaseProvider {
         type: "documentError",
         data: { error: errorMsg },
       });
+    }
+  }
+
+  // ============================================
+  // OceanBase Cloud Table Operations
+  // ============================================
+
+  /**
+   * Handle create table for OceanBase Cloud
+   */
+  private async handleCreateTable(
+    data: { name: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isOceanBaseCloudConnection(connection)) {
+      panel.webview.postMessage({
+        type: "tableError",
+        data: {
+          error: "Only OceanBase Cloud connections support this operation",
+        },
+      });
+      return;
+    }
+
+    try {
+      const tableName = data.name.trim();
+      if (!tableName) {
+        panel.webview.postMessage({
+          type: "tableError",
+          data: { error: "Table name cannot be empty" },
+        });
+        return;
+      }
+
+      // Create table with basic structure
+      const createTableSql = `CREATE TABLE IF NOT EXISTS \`${tableName}\` (
+        \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+        \`name\` VARCHAR(255),
+        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`;
+
+      await this.executeOceanBaseCloudQuery(connection.id, createTableSql);
+
+      this.addWarning("info", `Successfully created table: ${tableName}`);
+      vscode.window.showInformationMessage(
+        `Successfully created table: ${tableName}`
+      );
+
+      panel.webview.postMessage({
+        type: "tableCreated",
+        data: { name: tableName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to create table: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "tableError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle delete table for OceanBase Cloud
+   */
+  private async handleDeleteTable(
+    data: { name: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isOceanBaseCloudConnection(connection)) {
+      panel.webview.postMessage({
+        type: "tableError",
+        data: {
+          error: "Only OceanBase Cloud connections support this operation",
+        },
+      });
+      return;
+    }
+
+    try {
+      const tableName = data.name.trim();
+      if (!tableName) {
+        panel.webview.postMessage({
+          type: "tableError",
+          data: { error: "Table name cannot be empty" },
+        });
+        return;
+      }
+
+      // Drop table
+      const dropTableSql = `DROP TABLE IF EXISTS \`${tableName}\``;
+      await this.executeOceanBaseCloudQuery(connection.id, dropTableSql);
+
+      this.addWarning("info", `Successfully deleted table: ${tableName}`);
+      vscode.window.showInformationMessage(
+        `Successfully deleted table: ${tableName}`
+      );
+
+      panel.webview.postMessage({
+        type: "tableDeleted",
+        data: { name: tableName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to delete table: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "tableError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  // ============================================
+  // OceanBase Cloud Row Operations
+  // ============================================
+
+  /**
+   * Handle create row for OceanBase Cloud
+   */
+  private async handleCreateRow(
+    data: {
+      tableName: string;
+      rowData: Record<string, any>;
+      columns?: { name: string; type: string }[];
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isOceanBaseCloudConnection(connection)) {
+      panel.webview.postMessage({
+        type: "rowError",
+        data: {
+          error: "Only OceanBase Cloud connections support this operation",
+        },
+      });
+      return;
+    }
+
+    try {
+      const { tableName, rowData } = data;
+
+      if (!tableName) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "Table name is required" },
+        });
+        return;
+      }
+
+      // Build INSERT SQL
+      const columns: string[] = [];
+      const values: string[] = [];
+
+      for (const [key, value] of Object.entries(rowData)) {
+        if (value !== null && value !== undefined && value !== "") {
+          columns.push(`\`${key}\``);
+          if (typeof value === "string") {
+            // Escape single quotes in string values
+            values.push(`'${value.replace(/'/g, "''")}'`);
+          } else if (typeof value === "number") {
+            values.push(String(value));
+          } else if (typeof value === "boolean") {
+            values.push(value ? "1" : "0");
+          } else {
+            values.push(`'${JSON.stringify(value).replace(/'/g, "''")}'`);
+          }
+        }
+      }
+
+      if (columns.length === 0) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "At least one column value is required" },
+        });
+        return;
+      }
+
+      const insertSql = `INSERT INTO \`${tableName}\` (${columns.join(
+        ", "
+      )}) VALUES (${values.join(", ")})`;
+      await this.executeOceanBaseCloudQuery(connection.id, insertSql);
+
+      this.addWarning("info", `Successfully inserted row into ${tableName}`);
+
+      panel.webview.postMessage({
+        type: "rowCreated",
+        data: { tableName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to insert row: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "rowError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle update row for OceanBase Cloud
+   */
+  private async handleUpdateRow(
+    data: {
+      tableName: string;
+      originalData: Record<string, any>;
+      updatedData: Record<string, any>;
+      columns?: { name: string; type: string }[];
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isOceanBaseCloudConnection(connection)) {
+      panel.webview.postMessage({
+        type: "rowError",
+        data: {
+          error: "Only OceanBase Cloud connections support this operation",
+        },
+      });
+      return;
+    }
+
+    try {
+      const { tableName, originalData, updatedData } = data;
+
+      if (!tableName) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "Table name is required" },
+        });
+        return;
+      }
+
+      // Build SET clause for UPDATE
+      const setClauses: string[] = [];
+      for (const [key, value] of Object.entries(updatedData)) {
+        if (value === null || value === undefined) {
+          setClauses.push(`\`${key}\` = NULL`);
+        } else if (typeof value === "string") {
+          setClauses.push(`\`${key}\` = '${value.replace(/'/g, "''")}'`);
+        } else if (typeof value === "number") {
+          setClauses.push(`\`${key}\` = ${value}`);
+        } else if (typeof value === "boolean") {
+          setClauses.push(`\`${key}\` = ${value ? 1 : 0}`);
+        } else {
+          setClauses.push(
+            `\`${key}\` = '${JSON.stringify(value).replace(/'/g, "''")}'`
+          );
+        }
+      }
+
+      if (setClauses.length === 0) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "No columns to update" },
+        });
+        return;
+      }
+
+      // Build WHERE clause using primary key or all original columns
+      const whereClauses: string[] = [];
+      // Try to use id or primary key first
+      if (originalData.id !== undefined) {
+        whereClauses.push(`\`id\` = ${this.formatSqlValue(originalData.id)}`);
+      } else {
+        // Use all original columns to identify the row
+        for (const [key, value] of Object.entries(originalData)) {
+          if (value === null || value === undefined) {
+            whereClauses.push(`\`${key}\` IS NULL`);
+          } else {
+            whereClauses.push(`\`${key}\` = ${this.formatSqlValue(value)}`);
+          }
+        }
+      }
+
+      const updateSql = `UPDATE \`${tableName}\` SET ${setClauses.join(
+        ", "
+      )} WHERE ${whereClauses.join(" AND ")} LIMIT 1`;
+      await this.executeOceanBaseCloudQuery(connection.id, updateSql);
+
+      this.addWarning("info", `Successfully updated row in ${tableName}`);
+
+      panel.webview.postMessage({
+        type: "rowUpdated",
+        data: { tableName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to update row: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "rowError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Handle delete row for OceanBase Cloud
+   */
+  private async handleDeleteRow(
+    data: {
+      tableName: string;
+      rowData: Record<string, any>;
+      columns?: { name: string; type: string }[];
+    },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection
+  ): Promise<void> {
+    if (!this.isOceanBaseCloudConnection(connection)) {
+      panel.webview.postMessage({
+        type: "rowError",
+        data: {
+          error: "Only OceanBase Cloud connections support this operation",
+        },
+      });
+      return;
+    }
+
+    try {
+      const { tableName, rowData } = data;
+
+      if (!tableName) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "Table name is required" },
+        });
+        return;
+      }
+
+      // Build WHERE clause using primary key or all columns
+      const whereClauses: string[] = [];
+      // Try to use id or primary key first
+      if (rowData.id !== undefined) {
+        whereClauses.push(`\`id\` = ${this.formatSqlValue(rowData.id)}`);
+      } else {
+        // Use all columns to identify the row
+        for (const [key, value] of Object.entries(rowData)) {
+          if (value === null || value === undefined) {
+            whereClauses.push(`\`${key}\` IS NULL`);
+          } else {
+            whereClauses.push(`\`${key}\` = ${this.formatSqlValue(value)}`);
+          }
+        }
+      }
+
+      if (whereClauses.length === 0) {
+        panel.webview.postMessage({
+          type: "rowError",
+          data: { error: "Cannot identify row to delete" },
+        });
+        return;
+      }
+
+      const deleteSql = `DELETE FROM \`${tableName}\` WHERE ${whereClauses.join(
+        " AND "
+      )} LIMIT 1`;
+      await this.executeOceanBaseCloudQuery(connection.id, deleteSql);
+
+      this.addWarning("info", `Successfully deleted row from ${tableName}`);
+
+      panel.webview.postMessage({
+        type: "rowDeleted",
+        data: { tableName },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Failed to delete row: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "rowError",
+        data: { error: errorMsg },
+      });
+    }
+  }
+
+  /**
+   * Format value for SQL query
+   */
+  private formatSqlValue(value: any): string {
+    if (value === null || value === undefined) {
+      return "NULL";
+    } else if (typeof value === "string") {
+      return `'${value.replace(/'/g, "''")}'`;
+    } else if (typeof value === "number") {
+      return String(value);
+    } else if (typeof value === "boolean") {
+      return value ? "1" : "0";
+    } else {
+      return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
     }
   }
 }

@@ -91,6 +91,18 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>(
     initialConnectionInfo
   );
+
+  // 术语差异化：SeekDB 使用 collection/document，云数据库使用 table/row
+  const terminology = {
+    collection: isOceanBaseCloud ? "table" : "collection",
+    collections: isOceanBaseCloud ? "tables" : "collections",
+    document: isOceanBaseCloud ? "row" : "document",
+    documents: isOceanBaseCloud ? "rows" : "documents",
+    Collection: isOceanBaseCloud ? "Table" : "Collection",
+    Collections: isOceanBaseCloud ? "Tables" : "Collections",
+    Document: isOceanBaseCloud ? "Row" : "Document",
+    Documents: isOceanBaseCloud ? "Rows" : "Documents",
+  };
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null
@@ -360,6 +372,50 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setError(message.data?.error || "Collection operation failed");
             setCollectionOperationLoading(false);
             break;
+          case "tableCreated":
+            // 表创建成功（云数据库）
+            console.log(
+              "[CollectionBrowser] Table created:",
+              message.data
+            );
+            setShowCreateCollectionDialog(false);
+            setNewCollectionName("");
+            setCollectionOperationLoading(false);
+            setError(null);
+            setSuccessMessage(
+              `Table "${message.data?.name || ""}" created successfully`
+            );
+            setTimeout(() => setSuccessMessage(null), 3000);
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "tableDeleted":
+            // 表删除成功（云数据库）
+            console.log(
+              "[CollectionBrowser] Table deleted:",
+              message.data
+            );
+            setCollectionToDelete(null);
+            setCollectionOperationLoading(false);
+            setError(null);
+            setSuccessMessage(
+              `Table "${message.data?.name || ""}" deleted successfully`
+            );
+            setTimeout(() => setSuccessMessage(null), 3000);
+            if (selectedCollection === message.data?.name) {
+              setSelectedCollection(null);
+              setQueryResult(null);
+            }
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "tableError":
+            // 表操作失败（云数据库）
+            console.error(
+              "[CollectionBrowser] Table operation error:",
+              message.data?.error
+            );
+            setError(message.data?.error || "Table operation failed");
+            setCollectionOperationLoading(false);
+            break;
           case "documentDeleted":
             // 文档删除成功
             console.log("[CollectionBrowser] Document deleted:", message.data);
@@ -425,6 +481,68 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
                 data: { collectionName: selectedCollection },
               });
             }
+            break;
+          case "rowCreated":
+            // 行创建成功（云数据库）
+            console.log("[CollectionBrowser] Row created:", message.data);
+            setShowAddDocumentDialog(false);
+            setNewDocumentData({});
+            setDocumentOperationLoading(false);
+            setSuccessMessage("Row inserted successfully");
+            setTimeout(() => setSuccessMessage(null), 3000);
+            if (selectedCollection) {
+              vscode.postMessage({
+                type: "loadCollectionData",
+                data: { collectionName: selectedCollection },
+              });
+            }
+            break;
+          case "rowUpdated":
+            // 行更新成功（云数据库）
+            console.log("[CollectionBrowser] Row updated:", message.data);
+            setShowEditDialog(false);
+            setEditRowData(null);
+            setCurrentRowData(null);
+            setSelectedRowIndex(null);
+            setDocumentOperationLoading(false);
+            setSuccessMessage("Row updated successfully");
+            setTimeout(() => setSuccessMessage(null), 3000);
+            if (selectedCollection) {
+              vscode.postMessage({
+                type: "loadCollectionData",
+                data: { collectionName: selectedCollection },
+              });
+            }
+            break;
+          case "rowDeleted":
+            // 行删除成功（云数据库）
+            console.log("[CollectionBrowser] Row deleted:", message.data);
+            setShowDeleteConfirm(false);
+            setCurrentRowData(null);
+            setSelectedRowIndex(null);
+            setDocumentOperationLoading(false);
+            setSuccessMessage("Row deleted successfully");
+            setTimeout(() => setSuccessMessage(null), 3000);
+            if (selectedCollection) {
+              vscode.postMessage({
+                type: "loadCollectionData",
+                data: { collectionName: selectedCollection },
+              });
+            }
+            break;
+          case "rowError":
+            // 行操作失败（云数据库）
+            console.error(
+              "[CollectionBrowser] Row operation error:",
+              message.data?.error
+            );
+            setError(message.data?.error || "Row operation failed");
+            setDocumentOperationLoading(false);
+            setShowDeleteConfirm(false);
+            setShowEditDialog(false);
+            setShowAddDocumentDialog(false);
+            setCurrentRowData(null);
+            setEditRowData(null);
             break;
         }
       } catch (err) {
@@ -675,21 +793,30 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
-  // 创建集合
+  // 创建集合/表
   const handleCreateCollection = () => {
     const name = newCollectionName.trim();
     if (!name) {
-      setError("Please enter a collection name");
+      setError(`Please enter a ${terminology.collection} name`);
       return;
     }
     setCollectionOperationLoading(true);
     setError(null);
-    // 自动添加前缀
-    const fullName = `${COLLECTION_PREFIX}${name}`;
-    vscode.postMessage({
-      type: "createCollection",
-      data: { name: fullName },
-    });
+    
+    if (isOceanBaseCloud) {
+      // 云数据库：创建表
+      vscode.postMessage({
+        type: "createTable",
+        data: { name },
+      });
+    } else {
+      // SeekDB：自动添加前缀
+      const fullName = `${COLLECTION_PREFIX}${name}`;
+      vscode.postMessage({
+        type: "createCollection",
+        data: { name: fullName },
+      });
+    }
   };
 
   // 取消创建集合
@@ -755,15 +882,25 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     setCollectionToDelete(collectionName);
   };
 
-  // 确认删除集合
+  // 确认删除集合/表
   const handleConfirmDeleteCollection = () => {
     if (!collectionToDelete) return;
     setCollectionOperationLoading(true);
     setError(null);
-    vscode.postMessage({
-      type: "deleteCollection",
-      data: { name: collectionToDelete },
-    });
+    
+    if (isOceanBaseCloud) {
+      // 云数据库：删除表
+      vscode.postMessage({
+        type: "deleteTable",
+        data: { name: collectionToDelete },
+      });
+    } else {
+      // SeekDB：删除集合
+      vscode.postMessage({
+        type: "deleteCollection",
+        data: { name: collectionToDelete },
+      });
+    }
   };
 
   // 取消删除集合
@@ -845,7 +982,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     }
   };
 
-  // 确认删除文档
+  // 确认删除文档/行
   const handleConfirmDeleteDocument = () => {
     try {
       if (!currentRowData || !selectedCollection) {
@@ -858,21 +995,38 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       setDocumentOperationLoading(true);
       setError(null);
 
-      // 获取文档 ID（SeekDB Collection 使用 _id 字段）
-      const documentId = currentRowData._id || currentRowData.id;
-      console.log("[CollectionBrowser] Deleting document:", {
-        collectionName: selectedCollection,
-        documentId,
-      });
+      if (isOceanBaseCloud) {
+        // 云数据库：删除行
+        console.log("[CollectionBrowser] Deleting row:", {
+          tableName: selectedCollection,
+          rowData: currentRowData,
+        });
 
-      vscode.postMessage({
-        type: "deleteDocument",
-        data: {
+        vscode.postMessage({
+          type: "deleteRow",
+          data: {
+            tableName: selectedCollection,
+            rowData: currentRowData,
+            columns: queryResult?.columns,
+          },
+        });
+      } else {
+        // SeekDB：删除文档
+        const documentId = currentRowData._id || currentRowData.id;
+        console.log("[CollectionBrowser] Deleting document:", {
           collectionName: selectedCollection,
           documentId,
-          rowData: currentRowData,
-        },
-      });
+        });
+
+        vscode.postMessage({
+          type: "deleteDocument",
+          data: {
+            collectionName: selectedCollection,
+            documentId,
+            rowData: currentRowData,
+          },
+        });
+      }
     } catch (err) {
       console.error(
         "[CollectionBrowser] Error in handleConfirmDeleteDocument:",
@@ -880,7 +1034,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       );
       setDocumentOperationLoading(false);
       setError(
-        err instanceof Error ? err.message : "Failed to delete document"
+        err instanceof Error ? err.message : `Failed to delete ${terminology.document}`
       );
     }
   };
@@ -891,23 +1045,36 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     setCurrentRowData(null);
   };
 
-  // 确认更新文档
+  // 确认更新文档/行
   const handleConfirmUpdateDocument = () => {
     if (!editRowData || !currentRowData || !selectedCollection) return;
     setDocumentOperationLoading(true);
     setError(null);
 
-    // 获取文档 ID（SeekDB Collection 使用 _id 字段）
-    const documentId = currentRowData._id || currentRowData.id;
-    vscode.postMessage({
-      type: "updateDocument",
-      data: {
-        collectionName: selectedCollection,
-        documentId,
-        originalData: currentRowData,
-        updatedData: editRowData,
-      },
-    });
+    if (isOceanBaseCloud) {
+      // 云数据库：更新行
+      vscode.postMessage({
+        type: "updateRow",
+        data: {
+          tableName: selectedCollection,
+          originalData: currentRowData,
+          updatedData: editRowData,
+          columns: queryResult?.columns,
+        },
+      });
+    } else {
+      // SeekDB：更新文档
+      const documentId = currentRowData._id || currentRowData.id;
+      vscode.postMessage({
+        type: "updateDocument",
+        data: {
+          collectionName: selectedCollection,
+          documentId,
+          originalData: currentRowData,
+          updatedData: editRowData,
+        },
+      });
+    }
   };
 
   // 取消编辑文档
@@ -950,20 +1117,32 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
-  // 打开新增文档对话框
+  // 打开新增文档/行对话框
   const handleShowAddDocument = () => {
     if (!selectedCollection) {
-      setError("Please select a collection first");
+      setError(`Please select a ${terminology.collection} first`);
       return;
     }
-    // 初始化新文档数据，使用 SeekDB Collection 标准字段
-    // document: 文档内容（用于向量化）
-    // metadata: 元数据（JSON 格式）
-    const initialData: Record<string, string> = {
-      document: "",
-      metadata: "{}",
-    };
-    setNewDocumentData(initialData);
+    
+    if (isOceanBaseCloud) {
+      // 云数据库：根据表结构初始化空字段
+      const initialData: Record<string, string> = {};
+      if (queryResult?.columns) {
+        queryResult.columns.forEach((col) => {
+          initialData[col.name] = "";
+        });
+      }
+      setNewDocumentData(initialData);
+    } else {
+      // SeekDB：使用 SeekDB Collection 标准字段
+      // document: 文档内容（用于向量化）
+      // metadata: 元数据（JSON 格式）
+      const initialData: Record<string, string> = {
+        document: "",
+        metadata: "{}",
+      };
+      setNewDocumentData(initialData);
+    }
     setShowAddDocumentDialog(true);
   };
 
@@ -975,7 +1154,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     });
   };
 
-  // 确认新增文档
+  // 确认新增文档/行
   const handleConfirmAddDocument = () => {
     if (!selectedCollection) return;
     setDocumentOperationLoading(true);
@@ -995,13 +1174,26 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       }
     });
 
-    vscode.postMessage({
-      type: "createDocument",
-      data: {
-        collectionName: selectedCollection,
-        documentData: processedData,
-      },
-    });
+    if (isOceanBaseCloud) {
+      // 云数据库：插入行
+      vscode.postMessage({
+        type: "createRow",
+        data: {
+          tableName: selectedCollection,
+          rowData: processedData,
+          columns: queryResult?.columns,
+        },
+      });
+    } else {
+      // SeekDB：创建文档
+      vscode.postMessage({
+        type: "createDocument",
+        data: {
+          collectionName: selectedCollection,
+          documentData: processedData,
+        },
+      });
+    }
   };
 
   // 取消新增文档
@@ -1334,7 +1526,7 @@ for i, doc in enumerate(results['documents'][0]):
                   </div>
                 )}
 
-                {/* Collections node */}
+                {/* Collections/Tables node */}
                 <div
                   className="tree-item level-1"
                   onClick={() => toggleNode("collections")}
@@ -1348,13 +1540,13 @@ for i, doc in enumerate(results['documents'][0]):
                     )}
                   </span>
                   <List size={14} className="item-icon" />
-                  <span className="item-name">collections</span>
+                  <span className="item-name">{terminology.collections}</span>
                   <span className="tree-group-count">
-                    {isSeekDB && loading && collections.length === 0
+                    {(isSeekDB || isOceanBaseCloud) && loading && collections.length === 0
                       ? "(Loading...)"
                       : `(${collections.length})`}
                   </span>
-                  {isSeekDB && (
+                  {(isSeekDB || isOceanBaseCloud) && (
                     <div className="tree-item-actions">
                       <button
                         className="tree-action-btn"
@@ -1362,7 +1554,7 @@ for i, doc in enumerate(results['documents'][0]):
                           e.stopPropagation();
                           setShowCreateCollectionDialog(true);
                         }}
-                        title="Create collection"
+                        title={`Create ${terminology.collection}`}
                       >
                         <Plus size={12} />
                       </button>
@@ -1370,13 +1562,13 @@ for i, doc in enumerate(results['documents'][0]):
                   )}
                 </div>
 
-                {/* Collections list */}
+                {/* Collections/Tables list */}
                 {expandedNodes.has("collections") && (
                   <div>
-                    {isSeekDB && loading && collections.length === 0 ? (
+                    {(isSeekDB || isOceanBaseCloud) && loading && collections.length === 0 ? (
                       <div className="loading" style={{ padding: "16px 28px" }}>
                         <div className="loading-spinner"></div>
-                        Loading collections...
+                        Loading {terminology.collections}...
                       </div>
                     ) : collections.length === 0 ? (
                       <div
@@ -1388,7 +1580,7 @@ for i, doc in enumerate(results['documents'][0]):
                           fontStyle: "italic",
                         }}
                       >
-                        No collections found
+                        No {terminology.collections} found
                       </div>
                     ) : (
                       collections.map((collection) => (
@@ -1406,7 +1598,7 @@ for i, doc in enumerate(results['documents'][0]):
                             <ChevronRight size={12} />
                           </span>
                           <File size={14} className="item-icon" />
-                          {editingCollectionName === collection.name ? (
+                          {editingCollectionName === collection.name && isSeekDB ? (
                             <div
                               className="collection-edit-container"
                               onClick={(e) => e.stopPropagation()}
@@ -1460,20 +1652,22 @@ for i, doc in enumerate(results['documents'][0]):
                               <span className="item-name">
                                 {collection.name}
                               </span>
-                              {isSeekDB && (
+                              {(isSeekDB || isOceanBaseCloud) && (
                                 <div className="collection-item-actions">
-                                  <button
-                                    className="collection-action-btn"
-                                    onClick={(e) =>
-                                      handleStartRenameCollection(
-                                        collection.name,
-                                        e
-                                      )
-                                    }
-                                    title="Rename"
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
+                                  {isSeekDB && (
+                                    <button
+                                      className="collection-action-btn"
+                                      onClick={(e) =>
+                                        handleStartRenameCollection(
+                                          collection.name,
+                                          e
+                                        )
+                                      }
+                                      title="Rename"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                  )}
                                   <button
                                     className="collection-action-btn delete"
                                     onClick={(e) =>
@@ -1482,7 +1676,7 @@ for i, doc in enumerate(results['documents'][0]):
                                         e
                                       )
                                     }
-                                    title="Delete"
+                                    title={`Delete ${terminology.collection}`}
                                   >
                                     <Trash2 size={12} />
                                   </button>
@@ -1499,19 +1693,35 @@ for i, doc in enumerate(results['documents'][0]):
             )}
           </div>
 
-          {/* 创建集合对话框 */}
+          {/* 创建集合/表对话框 */}
           {showCreateCollectionDialog && (
             <div className="collection-dialog-overlay">
               <div className="collection-dialog">
-                <h4>Create Collection</h4>
-                <div className="collection-input-with-prefix">
-                  <span className="collection-prefix-label">
-                    {COLLECTION_PREFIX}
-                  </span>
+                <h4>Create {terminology.Collection}</h4>
+                {isSeekDB ? (
+                  <div className="collection-input-with-prefix">
+                    <span className="collection-prefix-label">
+                      {COLLECTION_PREFIX}
+                    </span>
+                    <input
+                      type="text"
+                      className="collection-dialog-input with-prefix"
+                      placeholder={`Enter ${terminology.collection} name...`}
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCreateCollection();
+                        if (e.key === "Escape") handleCancelCreateCollection();
+                      }}
+                      autoFocus
+                      disabled={collectionOperationLoading}
+                    />
+                  </div>
+                ) : (
                   <input
                     type="text"
-                    className="collection-dialog-input with-prefix"
-                    placeholder="Enter collection name..."
+                    className="collection-dialog-input"
+                    placeholder={`Enter ${terminology.collection} name...`}
                     value={newCollectionName}
                     onChange={(e) => setNewCollectionName(e.target.value)}
                     onKeyDown={(e) => {
@@ -1521,7 +1731,7 @@ for i, doc in enumerate(results['documents'][0]):
                     autoFocus
                     disabled={collectionOperationLoading}
                   />
-                </div>
+                )}
                 <div className="collection-dialog-actions">
                   <button
                     className="btn btn-primary btn-sm"
@@ -1548,13 +1758,13 @@ for i, doc in enumerate(results['documents'][0]):
             </div>
           )}
 
-          {/* 删除集合确认对话框 */}
+          {/* 删除集合/表确认对话框 */}
           {collectionToDelete && (
             <div className="collection-dialog-overlay">
               <div className="collection-dialog delete-dialog">
-                <h4>Delete Collection</h4>
+                <h4>Delete {terminology.Collection}</h4>
                 <p className="delete-warning">
-                  Are you sure you want to delete collection "
+                  Are you sure you want to delete {terminology.collection} "
                   <strong>{collectionToDelete}</strong>"? This action cannot be
                   undone.
                 </p>
@@ -1923,12 +2133,12 @@ for i, doc in enumerate(results['documents'][0]):
         </div>
       )}
 
-      {/* 查看文档对话框 */}
+      {/* 查看文档/行对话框 */}
       {showViewDialog && currentRowData && (
         <div className="document-dialog-overlay">
           <div className="document-dialog view-dialog">
             <div className="document-dialog-header">
-              <h4>View Document</h4>
+              <h4>View {terminology.Document}</h4>
               <button
                 className="dialog-close-btn"
                 onClick={() => {
@@ -1967,12 +2177,12 @@ for i, doc in enumerate(results['documents'][0]):
         </div>
       )}
 
-      {/* 编辑文档对话框 */}
+      {/* 编辑文档/行对话框 */}
       {showEditDialog && editRowData && (
         <div className="document-dialog-overlay">
           <div className="document-dialog edit-dialog">
             <div className="document-dialog-header">
-              <h4>Edit Document</h4>
+              <h4>Edit {terminology.Document}</h4>
               <button
                 className="dialog-close-btn"
                 onClick={handleCancelEditDocument}
@@ -1982,68 +2192,97 @@ for i, doc in enumerate(results['documents'][0]):
               </button>
             </div>
             <div className="document-dialog-content">
-              {/* 显示文档 ID（只读） */}
-              {(editRowData._id || editRowData.id) && (
-                <div className="document-field">
-                  <label className="document-field-label">
-                    _id
-                    <span className="document-field-type">
-                      STRING (readonly)
-                    </span>
-                  </label>
-                  <div className="document-field-value">
-                    {editRowData._id || editRowData.id}
+              {isOceanBaseCloud ? (
+                /* 云数据库：根据表结构动态显示所有字段 */
+                queryResult?.columns.map((col) => (
+                  <div key={col.name} className="document-field">
+                    <label className="document-field-label">
+                      {col.name}
+                      <span className="document-field-type">{col.type}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="document-field-input"
+                      style={{ minHeight: "36px" }}
+                      value={
+                        typeof editRowData[col.name] === "object"
+                          ? JSON.stringify(editRowData[col.name])
+                          : String(editRowData[col.name] ?? "")
+                      }
+                      onChange={(e) =>
+                        handleEditFieldChange(col.name, e.target.value)
+                      }
+                      disabled={documentOperationLoading}
+                    />
                   </div>
-                </div>
+                ))
+              ) : (
+                /* SeekDB：固定的 _id, document, metadata 字段 */
+                <>
+                  {/* 显示文档 ID（只读） */}
+                  {(editRowData._id || editRowData.id) && (
+                    <div className="document-field">
+                      <label className="document-field-label">
+                        _id
+                        <span className="document-field-type">
+                          STRING (readonly)
+                        </span>
+                      </label>
+                      <div className="document-field-value">
+                        {editRowData._id || editRowData.id}
+                      </div>
+                    </div>
+                  )}
+                  {/* 编辑 document 字段 */}
+                  <div className="document-field">
+                    <label className="document-field-label">
+                      document
+                      <span className="document-field-type">
+                        TEXT (for vectorization)
+                      </span>
+                    </label>
+                    <textarea
+                      className="document-field-input"
+                      value={
+                        typeof editRowData.document === "object"
+                          ? JSON.stringify(editRowData.document, null, 2)
+                          : String(editRowData.document ?? "")
+                      }
+                      onChange={(e) =>
+                        handleEditFieldChange("document", e.target.value)
+                      }
+                      disabled={documentOperationLoading}
+                      rows={4}
+                    />
+                  </div>
+                  {/* 编辑 metadata 字段 */}
+                  <div className="document-field">
+                    <label className="document-field-label">
+                      metadata
+                      <span className="document-field-type">JSON (optional)</span>
+                    </label>
+                    <textarea
+                      className="document-field-input"
+                      value={
+                        typeof editRowData.metadata === "object"
+                          ? JSON.stringify(editRowData.metadata, null, 2)
+                          : String(editRowData.metadata ?? "{}")
+                      }
+                      onChange={(e) =>
+                        handleEditFieldChange("metadata", e.target.value)
+                      }
+                      disabled={documentOperationLoading}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="document-field-hint">
+                    <p>
+                      💡 Embedding will be automatically updated when document
+                      changes.
+                    </p>
+                  </div>
+                </>
               )}
-              {/* 编辑 document 字段 */}
-              <div className="document-field">
-                <label className="document-field-label">
-                  document
-                  <span className="document-field-type">
-                    TEXT (for vectorization)
-                  </span>
-                </label>
-                <textarea
-                  className="document-field-input"
-                  value={
-                    typeof editRowData.document === "object"
-                      ? JSON.stringify(editRowData.document, null, 2)
-                      : String(editRowData.document ?? "")
-                  }
-                  onChange={(e) =>
-                    handleEditFieldChange("document", e.target.value)
-                  }
-                  disabled={documentOperationLoading}
-                  rows={4}
-                />
-              </div>
-              {/* 编辑 metadata 字段 */}
-              <div className="document-field">
-                <label className="document-field-label">
-                  metadata
-                  <span className="document-field-type">JSON (optional)</span>
-                </label>
-                <textarea
-                  className="document-field-input"
-                  value={
-                    typeof editRowData.metadata === "object"
-                      ? JSON.stringify(editRowData.metadata, null, 2)
-                      : String(editRowData.metadata ?? "{}")
-                  }
-                  onChange={(e) =>
-                    handleEditFieldChange("metadata", e.target.value)
-                  }
-                  disabled={documentOperationLoading}
-                  rows={3}
-                />
-              </div>
-              <div className="document-field-hint">
-                <p>
-                  💡 Embedding will be automatically updated when document
-                  changes.
-                </p>
-              </div>
             </div>
             <div className="document-dialog-actions">
               <button
@@ -2070,13 +2309,13 @@ for i, doc in enumerate(results['documents'][0]):
         </div>
       )}
 
-      {/* 删除文档确认对话框 */}
+      {/* 删除文档/行确认对话框 */}
       {showDeleteConfirm && currentRowData && (
         <div className="document-dialog-overlay">
           <div className="document-dialog delete-dialog">
-            <h4>Delete Document</h4>
+            <h4>Delete {terminology.Document}</h4>
             <p className="delete-warning">
-              Are you sure you want to delete this document
+              Are you sure you want to delete this {terminology.document}
               {currentRowData?._id || currentRowData?.id ? (
                 <>
                   {" "}
@@ -2114,12 +2353,12 @@ for i, doc in enumerate(results['documents'][0]):
         </div>
       )}
 
-      {/* 新增文档对话框 */}
+      {/* 新增文档/行对话框 */}
       {showAddDocumentDialog && (
         <div className="document-dialog-overlay">
           <div className="document-dialog add-dialog">
             <div className="document-dialog-header">
-              <h4>Add Document</h4>
+              <h4>Add {terminology.Document}</h4>
               <button
                 className="dialog-close-btn"
                 onClick={handleCancelAddDocument}
@@ -2129,43 +2368,76 @@ for i, doc in enumerate(results['documents'][0]):
               </button>
             </div>
             <div className="document-dialog-content">
-              <div className="document-field">
-                <label className="document-field-label">
-                  document
-                  <span className="document-field-type">
-                    TEXT (for vectorization)
-                  </span>
-                </label>
-                <textarea
-                  className="document-field-input"
-                  placeholder="Enter document content for vectorization..."
-                  value={newDocumentData.document || ""}
-                  onChange={(e) =>
-                    handleNewDocumentFieldChange("document", e.target.value)
-                  }
-                  disabled={documentOperationLoading}
-                  rows={4}
-                />
-              </div>
-              <div className="document-field">
-                <label className="document-field-label">
-                  metadata
-                  <span className="document-field-type">JSON (optional)</span>
-                </label>
-                <textarea
-                  className="document-field-input"
-                  placeholder='{"key": "value"}'
-                  value={newDocumentData.metadata || "{}"}
-                  onChange={(e) =>
-                    handleNewDocumentFieldChange("metadata", e.target.value)
-                  }
-                  disabled={documentOperationLoading}
-                  rows={3}
-                />
-              </div>
-              <div className="document-field-hint">
-                <p>💡 Document content will be automatically vectorized.</p>
-              </div>
+              {isOceanBaseCloud ? (
+                /* 云数据库：根据表结构动态显示字段 */
+                queryResult?.columns ? (
+                  queryResult.columns.map((col) => (
+                    <div key={col.name} className="document-field">
+                      <label className="document-field-label">
+                        {col.name}
+                        <span className="document-field-type">{col.type}</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="document-field-input"
+                        style={{ minHeight: "36px" }}
+                        placeholder={`Enter ${col.name}...`}
+                        value={newDocumentData[col.name] || ""}
+                        onChange={(e) =>
+                          handleNewDocumentFieldChange(col.name, e.target.value)
+                        }
+                        disabled={documentOperationLoading}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-fields-hint">
+                    <p>No table structure available.</p>
+                    <p>Please select a table first.</p>
+                  </div>
+                )
+              ) : (
+                /* SeekDB：固定的 document 和 metadata 字段 */
+                <>
+                  <div className="document-field">
+                    <label className="document-field-label">
+                      document
+                      <span className="document-field-type">
+                        TEXT (for vectorization)
+                      </span>
+                    </label>
+                    <textarea
+                      className="document-field-input"
+                      placeholder="Enter document content for vectorization..."
+                      value={newDocumentData.document || ""}
+                      onChange={(e) =>
+                        handleNewDocumentFieldChange("document", e.target.value)
+                      }
+                      disabled={documentOperationLoading}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="document-field">
+                    <label className="document-field-label">
+                      metadata
+                      <span className="document-field-type">JSON (optional)</span>
+                    </label>
+                    <textarea
+                      className="document-field-input"
+                      placeholder='{"key": "value"}'
+                      value={newDocumentData.metadata || "{}"}
+                      onChange={(e) =>
+                        handleNewDocumentFieldChange("metadata", e.target.value)
+                      }
+                      disabled={documentOperationLoading}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="document-field-hint">
+                    <p>💡 Document content will be automatically vectorized.</p>
+                  </div>
+                </>
+              )}
             </div>
             <div className="document-dialog-actions">
               <button
@@ -2178,7 +2450,7 @@ for i, doc in enumerate(results['documents'][0]):
                 ) : (
                   <Plus size={14} />
                 )}
-                Add
+                {isOceanBaseCloud ? "Insert" : "Add"}
               </button>
               <button
                 className="btn btn-secondary"
