@@ -364,9 +364,7 @@
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
   text-transform: uppercase;
-}
-
-.db-database-item {
+}.db-database-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -387,9 +385,7 @@
 
 .db-database-icon {
   font-size: 14px;
-}
-
-.db-database-name {
+}.db-database-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -399,9 +395,7 @@
 .db-database-info {
   font-size: 10px;
   color: var(--vscode-descriptionForeground, #888);
-}
-
-.db-database-item .db-action-btn {
+}.db-database-item .db-action-btn {
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -430,9 +424,7 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
-}
-
-.db-create-db-btn:hover {
+}.db-create-db-btn:hover {
   background: var(--vscode-button-hoverBackground, #026ec1);
 }
 
@@ -445,9 +437,7 @@
   padding: 16px;
   color: var(--vscode-descriptionForeground, #888);
   font-size: 12px;
-}
-
-.db-loading-spinner {
+}.db-loading-spinner {
   width: 16px;
   height: 16px;
   border: 2px solid var(--vscode-panel-border, #3c3c3c);
