@@ -2662,22 +2662,69 @@ export class DatabaseProvider {
         return;
       }
 
-      // For SeekDB, collection names should have 'c$v1$' prefix for table names
-      // If user provides clean name, add prefix; if already has prefix, use as is
+      // Get SeekDB client
+      let client = this.getSeekdbClient(connection.id);
+      if (!client && connection.connected) {
+        try {
+          const clients = await this.createSeekdbClients(connection);
+          this.seekdbClients.set(connection.id, clients);
+          client = clients.client;
+          this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
+        } catch (reconnectError) {
+          const errMsg =
+            reconnectError instanceof Error
+              ? reconnectError.message
+              : String(reconnectError);
+          panel.webview.postMessage({
+            type: "collectionError",
+            data: { error: `Failed to reconnect: ${errMsg}` },
+          });
+          return;
+        }
+      }
+
+      if (!client) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "SeekDB client not connected" },
+        });
+        return;
+      }
+
+      // Remove 'c$v1$' prefix if present - SDK adds it automatically
       const COLLECTION_PREFIX = "c$v1$";
-      const tableName = collectionName.startsWith(COLLECTION_PREFIX)
-        ? collectionName
-        : `${COLLECTION_PREFIX}${collectionName}`;
+      const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName.slice(COLLECTION_PREFIX.length)
+        : collectionName;
 
-      // Create table with basic structure (id and _vector fields for SeekDB)
-      const createTableSql = `CREATE TABLE IF NOT EXISTS \`${tableName}\` (
-        \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
-        \`content\` TEXT,
-        \`_vector\` JSON,
-        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`;
+      // Create embedding function adapter from project's embedding service
+      const embeddingFunction = this.createEmbeddingFunctionAdapter();
+      if (!embeddingFunction) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: {
+            error:
+              "Embedding service not available. Please check your embedding configuration in settings.",
+          },
+        });
+        return;
+      }
 
-      await this.executeSeekDBQuery(connection.id, createTableSql);
+      // Show info message about using embedding model
+      const modelName = embeddingFunction.name;
+      vscode.window.showInformationMessage(
+        `Creating collection with vectorization using: ${modelName}`,
+      );
+
+      // Use SDK's createCollection method to properly create a vector-enabled collection
+      await client.createCollection({
+        name: actualCollectionName,
+        embeddingFunction: embeddingFunction,
+        configuration: {
+          dimension: 384, // Default dimension for all-MiniLM-L6-v2 model
+          distance: "cosine" as const,
+        },
+      });
 
       this.addWarning(
         "info",
@@ -2702,7 +2749,7 @@ export class DatabaseProvider {
   }
 
   /**
-   * Handle delete collection
+   * Handle delete collection - uses SeekDB SDK API
    */
   private async handleDeleteCollection(
     data: { name: string },
@@ -2727,16 +2774,44 @@ export class DatabaseProvider {
         return;
       }
 
-      // For SeekDB, collection names should have 'c$v1$' prefix for table names
-      // If user provides clean name, add prefix; if already has prefix, use as is
-      const COLLECTION_PREFIX = "c$v1$";
-      const tableName = collectionName.startsWith(COLLECTION_PREFIX)
-        ? collectionName
-        : `${COLLECTION_PREFIX}${collectionName}`;
+      // Get SeekDB client
+      let client = this.getSeekdbClient(connection.id);
+      if (!client && connection.connected) {
+        try {
+          const clients = await this.createSeekdbClients(connection);
+          this.seekdbClients.set(connection.id, clients);
+          client = clients.client;
+          this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
+        } catch (reconnectError) {
+          const errMsg =
+            reconnectError instanceof Error
+              ? reconnectError.message
+              : String(reconnectError);
+          panel.webview.postMessage({
+            type: "collectionError",
+            data: { error: `Failed to reconnect: ${errMsg}` },
+          });
+          return;
+        }
+      }
 
-      // Drop table
-      const dropTableSql = `DROP TABLE IF EXISTS \`${tableName}\``;
-      await this.executeSeekDBQuery(connection.id, dropTableSql);
+      if (!client) {
+        panel.webview.postMessage({
+          type: "collectionError",
+          data: { error: "SeekDB client not connected" },
+        });
+        return;
+      }
+
+      // Remove 'c$v1$' prefix if present - SDK handles it automatically
+      const COLLECTION_PREFIX = "c$v1$";
+      const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName.slice(COLLECTION_PREFIX.length)
+        : collectionName;
+
+      // Use SDK's deleteCollection() API
+      // This properly cleans up vector indexes and metadata tables
+      await client.deleteCollection(actualCollectionName);
 
       this.addWarning(
         "info",
@@ -2762,6 +2837,13 @@ export class DatabaseProvider {
 
   /**
    * Handle rename collection
+   * 
+   * WARNING: seekdb SDK 1.0.0 does not provide a renameCollection() API.
+   * This implementation uses direct SQL (RENAME TABLE), which may cause
+   * inconsistencies with vector indexes and metadata tables.
+   * 
+   * Recommendation: Consider implementing as delete + recreate + migrate data
+   * for collections created via SDK, or warn users about potential issues.
    */
   private async handleRenameCollection(
     data: { oldName: string; newName: string },
@@ -2806,7 +2888,9 @@ export class DatabaseProvider {
         ? newName
         : `${COLLECTION_PREFIX}${newName}`;
 
-      // Rename table
+      // Rename table using SQL
+      // NOTE: This only renames the main table, not the vector index metadata
+      // This may cause issues with collections created via SDK
       const renameTableSql = `RENAME TABLE \`${oldTableName}\` TO \`${newTableName}\``;
       await this.executeSeekDBQuery(connection.id, renameTableSql);
 
