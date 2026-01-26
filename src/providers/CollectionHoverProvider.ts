@@ -33,21 +33,27 @@ export class CollectionHoverProvider implements vscode.HoverProvider {
       return null;
     }
 
-    // 在集合名称前添加 c$v1 前缀
-
-    const fullCollectionName = `c$v1$${collectionName}`;
+    // Note: collectionName should be clean (without 'c$v1$' prefix) because:
+    // 1. listCollections() returns clean names
+    // 2. SDK automatically adds prefix internally
+    // 3. All other code paths use clean names
+    // If collectionName already has prefix, remove it to avoid double prefix issue
+    const COLLECTION_PREFIX = "c$v1$";
+    const cleanCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
+      ? collectionName.slice(COLLECTION_PREFIX.length)
+      : collectionName;
 
     // 创建 hover 内容
     const markdown = new vscode.MarkdownString();
     markdown.isTrusted = true; // 允许执行命令
 
     // 添加说明文本
-    markdown.appendMarkdown(`**Collection:** \`${collectionName}\`\n\n`);
+    markdown.appendMarkdown(`**Collection:** \`${cleanCollectionName}\`\n\n`);
 
-    // 添加跳转按钮
+    // 添加跳转按钮（使用干净的 collection name，不带前缀）
     const commandUri = vscode.Uri.parse(
       `command:seekdb.openCollectionBrowser?${encodeURIComponent(
-        JSON.stringify([fullCollectionName])
+        JSON.stringify([cleanCollectionName])
       )}`
     );
     markdown.appendMarkdown(

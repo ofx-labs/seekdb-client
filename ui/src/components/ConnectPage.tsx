@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Database,
   Search,
-  Zap,
   Settings,
   KeyRound,
   Globe,
@@ -52,7 +51,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
   } | null>(null);
   // Store connection id for editing existing connections
   const [connectionId, setConnectionId] = useState<string | undefined>(
-    defaultConfig.id
+    defaultConfig.id,
   );
 
   // Tooltip 显示状态
@@ -124,7 +123,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
         case "testResult":
           showMessage(
             msg.data?.success ? "success" : "error",
-            msg.data?.success ? "Test successful!" : "Test failed"
+            msg.data?.success ? "Test successful!" : "Test failed",
           );
           break;
         case "restoreConnection":
@@ -382,7 +381,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                               className="tooltip-link"
                               onClick={() =>
                                 openExternalLink(
-                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-10000000000768633"
+                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-10000000000768633",
                                 )
                               }
                             >
@@ -393,7 +392,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                               className="tooltip-link"
                               onClick={() =>
                                 openExternalLink(
-                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-1000000001817313"
+                                  "https://en.oceanbase.com/docs/common-oceanbase-cloud-1000000001817313",
                                 )
                               }
                             >
@@ -647,7 +646,7 @@ const ConnectPage: React.FC<ConnectPageProps> = ({ vscode, defaultConfig }) => {
                   onChange={(e) =>
                     handleInputChange(
                       "socksPort",
-                      parseInt(e.target.value) || 1080
+                      parseInt(e.target.value) || 1080,
                     )
                   }
                 />

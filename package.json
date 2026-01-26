@@ -135,6 +135,9 @@
   },
   "scripts": {
     "install:all": "npm install && cd ui && npm install",
+    "postinstall": "node scripts/ensure-model.js || echo 'Model setup will run on first use'",
+    "setup-model": "bash scripts/setup-model.sh",
+    "test-model": "node scripts/test-model.js",
     "webview:dev": "cd ui && npm run start",
     "webview:watch": "cd ui && npm run watch",
     "webview:build": "cd ui && npm run build",
@@ -165,6 +168,6 @@
     "@huggingface/transformers": "^3.8.1",
     "fs-extra": "^11.3.0",
     "mysql2": "^3.15.3",
-    "seekdb": "0.1.0-alpha.1"
+    "seekdb": "1.0.0"
   }
 }

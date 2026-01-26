@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import {
-  SeekDBAdminClient,
-  SeekDBClient,
+  SeekdbAdminClient,
+  SeekdbClient,
   Database,
-  SeekDBError,
-  SeekDBConnectionError,
-  SeekDBNotFoundError,
+  SeekdbError,
+  SeekdbConnectionError,
+  SeekdbNotFoundError,
   DEFAULT_TENANT,
   DEFAULT_PORT,
   DEFAULT_USER,
@@ -37,9 +37,9 @@ interface DatabaseConnection {
 /**
  * SeekDB client instance management
  */
-interface SeekDBClientInstance {
-  adminClient: SeekDBAdminClient;
-  client?: SeekDBClient;
+interface SeekdbClientInstance {
+  adminClient: SeekdbAdminClient;
+  client?: SeekdbClient;
 }
 
 /**
@@ -100,11 +100,11 @@ export class DatabaseProvider {
   private collectionPanels: Map<string, vscode.WebviewPanel> = new Map();
   private connections: DatabaseConnection[] = [];
   private onConnectionsChangedCallback?: (
-    connections: DatabaseConnection[]
+    connections: DatabaseConnection[],
   ) => void;
 
   // SeekDB client instance management
-  private seekdbClients: Map<string, SeekDBClientInstance> = new Map();
+  private seekdbClients: Map<string, SeekdbClientInstance> = new Map();
   // Warning message cache
   private warnings: WarningMessage[] = [];
   // Embedding service instance
@@ -142,16 +142,16 @@ export class DatabaseProvider {
   /**
    * Get SeekDB AdminClient
    */
-  private getSeekDBAdminClient(
-    connectionId: string
-  ): SeekDBAdminClient | undefined {
+  private getSeekdbAdminClient(
+    connectionId: string,
+  ): SeekdbAdminClient | undefined {
     return this.seekdbClients.get(connectionId)?.adminClient;
   }
 
   /**
    * Get SeekDB Client
    */
-  private getSeekDBClient(connectionId: string): SeekDBClient | undefined {
+  private getSeekdbClient(connectionId: string): SeekdbClient | undefined {
     return this.seekdbClients.get(connectionId)?.client;
   }
 
@@ -188,10 +188,10 @@ export class DatabaseProvider {
   /**
    * Create SeekDB client instance
    */
-  private async createSeekDBClients(
-    connection: DatabaseConnection
-  ): Promise<SeekDBClientInstance> {
-    const adminClient = new SeekDBAdminClient({
+  private async createSeekdbClients(
+    connection: DatabaseConnection,
+  ): Promise<SeekdbClientInstance> {
+    const adminClient = new SeekdbAdminClient({
       host: connection.host,
       port: connection.port,
       user: connection.user,
@@ -199,7 +199,7 @@ export class DatabaseProvider {
       tenant: connection.tenant || DEFAULT_TENANT,
     });
 
-    const client = new SeekDBClient({
+    const client = new SeekdbClient({
       host: connection.host,
       port: connection.port,
       user: connection.user,
@@ -214,7 +214,7 @@ export class DatabaseProvider {
   /**
    * Close SeekDB client
    */
-  private async closeSeekDBClients(connectionId: string): Promise<void> {
+  private async closeSeekdbClients(connectionId: string): Promise<void> {
     const instance = this.seekdbClients.get(connectionId);
     if (instance) {
       try {
@@ -234,7 +234,7 @@ export class DatabaseProvider {
    */
   private addWarning(
     type: "warning" | "info" | "error",
-    message: string
+    message: string,
   ): void {
     const warning: WarningMessage = {
       type,
@@ -266,7 +266,7 @@ export class DatabaseProvider {
    * Set connection change callback
    */
   public onConnectionsChanged(
-    callback: (connections: DatabaseConnection[]) => void
+    callback: (connections: DatabaseConnection[]) => void,
   ) {
     this.onConnectionsChangedCallback = callback;
   }
@@ -284,7 +284,7 @@ export class DatabaseProvider {
   private loadConnections(): void {
     const saved = this.context.globalState.get<DatabaseConnection[]>(
       "databaseConnections",
-      []
+      [],
     );
     this.connections = saved;
   }
@@ -328,7 +328,7 @@ export class DatabaseProvider {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [this.context.extensionUri],
-      }
+      },
     );
 
     // Set icon
@@ -337,13 +337,13 @@ export class DatabaseProvider {
         this.context.extensionUri,
         "media",
         "light",
-        "snippet.svg"
+        "snippet.svg",
       ),
       dark: vscode.Uri.joinPath(
         this.context.extensionUri,
         "media",
         "dark",
-        "snippet.svg"
+        "snippet.svg",
       ),
     };
 
@@ -373,14 +373,14 @@ export class DatabaseProvider {
     // Set HTML content
     this.panel.webview.html = this.getConnectPageHtml(
       this.panel.webview,
-      defaultConfig
+      defaultConfig,
     );
 
     // Handle messages
     this.panel.webview.onDidReceiveMessage(
       (message) => this.handleMessage(message),
       undefined,
-      this.context.subscriptions
+      this.context.subscriptions,
     );
 
     // Listen for panel close
@@ -432,12 +432,12 @@ export class DatabaseProvider {
 
     try {
       vscode.window.showInformationMessage(
-        `Connecting to ${data.host}:${data.port}...`
+        `Connecting to ${data.host}:${data.port}...`,
       );
 
       // If SeekDB type, create real connection
       if (this.isSeekDBConnection(connection)) {
-        const clients = await this.createSeekDBClients(connection);
+        const clients = await this.createSeekdbClients(connection);
 
         // Test if connection is successful - try to list databases
         try {
@@ -446,7 +446,7 @@ export class DatabaseProvider {
           connection.connected = true;
           this.addWarning(
             "info",
-            `Successfully connected to seekdb: ${connection.name}`
+            `Successfully connected to seekdb: ${connection.name}`,
           );
         } catch (connError) {
           // Close failed connection
@@ -462,7 +462,7 @@ export class DatabaseProvider {
         connection.connected = true;
         this.addWarning(
           "info",
-          `Successfully connected to OceanBase Cloud: ${connection.name}`
+          `Successfully connected to OceanBase Cloud: ${connection.name}`,
         );
       } else {
         // Non-SeekDB type, use mock connection
@@ -486,15 +486,15 @@ export class DatabaseProvider {
       });
 
       vscode.window.showInformationMessage(
-        `Successfully connected to ${connection.name}`
+        `Successfully connected to ${connection.name}`,
       );
     } catch (error) {
       let errorMessage = String(error);
-      if (error instanceof SeekDBConnectionError) {
+      if (error instanceof SeekdbConnectionError) {
         errorMessage = `Connection failed: Unable to connect to server ${data.host}:${data.port}`;
         // Show how to connect to seekdb in editor notification
         this.addWarning("error", errorMessage);
-      } else if (error instanceof SeekDBError) {
+      } else if (error instanceof SeekdbError) {
         errorMessage = `seekdb error: ${error.message}`;
         this.addWarning("error", errorMessage);
       }
@@ -533,7 +533,7 @@ export class DatabaseProvider {
 
     this.saveConnections();
     vscode.window.showInformationMessage(
-      `Connection config "${connection.name}" saved`
+      `Connection config "${connection.name}" saved`,
     );
   }
 
@@ -541,7 +541,7 @@ export class DatabaseProvider {
    * Test OceanBase Cloud connection using MySQL compatible mode
    */
   private async testOceanBaseCloudConnection(
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const mysql = await import("mysql2/promise");
 
@@ -575,13 +575,13 @@ export class DatabaseProvider {
    */
   private async testConnection(data: any): Promise<void> {
     vscode.window.showInformationMessage(
-      `Testing connection ${data.host}:${data.port}...`
+      `Testing connection ${data.host}:${data.port}...`,
     );
 
     // If it's SeekDB type, perform real test
     if (data.type === "seekdb") {
       try {
-        const testClient = new SeekDBAdminClient({
+        const testClient = new SeekdbAdminClient({
           host: data.host,
           port: data.port || DEFAULT_PORT,
           user: data.user || DEFAULT_USER,
@@ -600,9 +600,9 @@ export class DatabaseProvider {
         vscode.window.showInformationMessage("Connection test successful!");
       } catch (error) {
         let errorMessage = "Connection test failed";
-        if (error instanceof SeekDBConnectionError) {
+        if (error instanceof SeekdbConnectionError) {
           errorMessage = `Unable to connect to server: ${data.host}:${data.port}`;
-        } else if (error instanceof SeekDBError) {
+        } else if (error instanceof SeekdbError) {
           errorMessage = `seekdb error: ${error.message}`;
         } else if (error instanceof Error) {
           errorMessage = error.message;
@@ -669,20 +669,20 @@ export class DatabaseProvider {
     if (connection) {
       // If it's SeekDB type, close real connection
       if (this.isSeekDBConnection(connection)) {
-        await this.closeSeekDBClients(connectionId);
+        await this.closeSeekdbClients(connectionId);
         this.addWarning("info", `Disconnected from seekdb: ${connection.name}`);
       } else if (this.isOceanBaseCloudConnection(connection)) {
         // OceanBase Cloud connections are stateless, just mark as disconnected
         this.addWarning(
           "info",
-          `Disconnected from OceanBase Cloud: ${connection.name}`
+          `Disconnected from OceanBase Cloud: ${connection.name}`,
         );
       }
 
       connection.connected = false;
       this.saveConnections();
       vscode.window.showInformationMessage(
-        `Disconnected from ${connection.name}`
+        `Disconnected from ${connection.name}`,
       );
     }
   }
@@ -695,7 +695,7 @@ export class DatabaseProvider {
 
     // If it's SeekDB type and connected, close connection first
     if (connection && this.isSeekDBConnection(connection)) {
-      await this.closeSeekDBClients(connectionId);
+      await this.closeSeekdbClients(connectionId);
     }
 
     this.connections = this.connections.filter((c) => c.id !== connectionId);
@@ -707,19 +707,19 @@ export class DatabaseProvider {
    * Get server database list (SeekDB only)
    */
   public async getServerDatabases(
-    connectionId: string
+    connectionId: string,
   ): Promise<DatabaseInfo[]> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
       return [];
     }
 
-    let adminClient = this.getSeekDBAdminClient(connectionId);
+    let adminClient = this.getSeekdbAdminClient(connectionId);
 
     // If client doesn't exist but connection is marked as connected, try to recreate client
     if (!adminClient && connection.connected) {
       try {
-        const clients = await this.createSeekDBClients(connection);
+        const clients = await this.createSeekdbClients(connection);
         this.seekdbClients.set(connectionId, clients);
         adminClient = clients.adminClient;
         this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
@@ -733,7 +733,7 @@ export class DatabaseProvider {
     if (!adminClient) {
       this.addWarning(
         "warning",
-        `Connection ${connection.name} has no AdminClient`
+        `Connection ${connection.name} has no AdminClient`,
       );
       return [];
     }
@@ -758,20 +758,20 @@ export class DatabaseProvider {
    */
   public async createServerDatabase(
     connectionId: string,
-    dbName: string
+    dbName: string,
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
       throw new Error(
-        "Only seekdb type connections support creating databases"
+        "Only seekdb type connections support creating databases",
       );
     }
 
-    let adminClient = this.getSeekDBAdminClient(connectionId);
+    let adminClient = this.getSeekdbAdminClient(connectionId);
 
     // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
-      const clients = await this.createSeekDBClients(connection);
+      const clients = await this.createSeekdbClients(connection);
       this.seekdbClients.set(connectionId, clients);
       adminClient = clients.adminClient;
     }
@@ -784,7 +784,7 @@ export class DatabaseProvider {
       await adminClient.createDatabase(dbName);
       this.addWarning("info", `Successfully created database: ${dbName}`);
       vscode.window.showInformationMessage(
-        `Successfully created database: ${dbName}`
+        `Successfully created database: ${dbName}`,
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -798,20 +798,20 @@ export class DatabaseProvider {
    */
   public async deleteServerDatabase(
     connectionId: string,
-    dbName: string
+    dbName: string,
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
       throw new Error(
-        "Only seekdb type connections support deleting databases"
+        "Only seekdb type connections support deleting databases",
       );
     }
 
-    let adminClient = this.getSeekDBAdminClient(connectionId);
+    let adminClient = this.getSeekdbAdminClient(connectionId);
 
     // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
-      const clients = await this.createSeekDBClients(connection);
+      const clients = await this.createSeekdbClients(connection);
       this.seekdbClients.set(connectionId, clients);
       adminClient = clients.adminClient;
     }
@@ -824,10 +824,10 @@ export class DatabaseProvider {
       await adminClient.deleteDatabase(dbName);
       this.addWarning("info", `Successfully deleted database: ${dbName}`);
       vscode.window.showInformationMessage(
-        `Successfully deleted database: ${dbName}`
+        `Successfully deleted database: ${dbName}`,
       );
     } catch (error) {
-      if (error instanceof SeekDBNotFoundError) {
+      if (error instanceof SeekdbNotFoundError) {
         this.addWarning("warning", `Database not found: ${dbName}`);
       } else {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -842,19 +842,19 @@ export class DatabaseProvider {
    */
   public async getServerDatabaseInfo(
     connectionId: string,
-    dbName: string
+    dbName: string,
   ): Promise<DatabaseInfo | null> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection || !this.isSeekDBConnection(connection)) {
       return null;
     }
 
-    let adminClient = this.getSeekDBAdminClient(connectionId);
+    let adminClient = this.getSeekdbAdminClient(connectionId);
 
     // If client doesn't exist, try to recreate
     if (!adminClient && connection.connected) {
       try {
-        const clients = await this.createSeekDBClients(connection);
+        const clients = await this.createSeekdbClients(connection);
         this.seekdbClients.set(connectionId, clients);
         adminClient = clients.adminClient;
       } catch {
@@ -875,7 +875,7 @@ export class DatabaseProvider {
         collation: db.collation,
       };
     } catch (error) {
-      if (error instanceof SeekDBNotFoundError) {
+      if (error instanceof SeekdbNotFoundError) {
         this.addWarning("warning", `Database not found: ${dbName}`);
         return null;
       }
@@ -888,7 +888,7 @@ export class DatabaseProvider {
    */
   public openCollectionBrowser(
     connectionId: string,
-    collectionName?: string
+    collectionName?: string,
   ): void {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
@@ -921,7 +921,7 @@ export class DatabaseProvider {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [this.context.extensionUri],
-      }
+      },
     );
 
     // Set icon
@@ -930,20 +930,20 @@ export class DatabaseProvider {
         this.context.extensionUri,
         "media",
         "light",
-        "snippet.svg"
+        "snippet.svg",
       ),
       dark: vscode.Uri.joinPath(
         this.context.extensionUri,
         "media",
         "dark",
-        "snippet.svg"
+        "snippet.svg",
       ),
     };
 
     // Set HTML content
     panel.webview.html = this.getCollectionBrowserHtml(
       panel.webview,
-      connection
+      connection,
     );
 
     // Save panel reference
@@ -954,7 +954,7 @@ export class DatabaseProvider {
       (message) =>
         this.handleCollectionBrowserMessage(message, panel, connection),
       undefined,
-      this.context.subscriptions
+      this.context.subscriptions,
     );
 
     // Listen for panel close
@@ -968,12 +968,12 @@ export class DatabaseProvider {
       this.isOceanBaseCloudConnection(connection)
     ) {
       console.log(
-        `[DatabaseProvider] openCollectionBrowser: ${connection.type}, will refresh collections in 100ms`
+        `[DatabaseProvider] openCollectionBrowser: ${connection.type}, will refresh collections in 100ms`,
       );
       // Delay a bit to ensure webview is fully loaded
       setTimeout(async () => {
         console.log(
-          "[DatabaseProvider] openCollectionBrowser: calling refreshCollections now"
+          "[DatabaseProvider] openCollectionBrowser: calling refreshCollections now",
         );
         await this.refreshCollections(panel, connection);
         // If collectionName is specified, load that collection's data
@@ -988,7 +988,7 @@ export class DatabaseProvider {
       }, 100);
     } else {
       console.log(
-        "[DatabaseProvider] openCollectionBrowser: not SeekDB or OceanBase Cloud, skipping initial refresh"
+        "[DatabaseProvider] openCollectionBrowser: not SeekDB or OceanBase Cloud, skipping initial refresh",
       );
     }
   }
@@ -997,14 +997,14 @@ export class DatabaseProvider {
    * Open collection browser and load specified collection (let user choose connection)
    */
   public async openCollectionBrowserWithCollection(
-    collectionName: string
+    collectionName: string,
   ): Promise<void> {
     // Get all connected connections
     const connectedConnections = this.connections.filter((c) => c.connected);
 
     if (connectedConnections.length === 0) {
       vscode.window.showWarningMessage(
-        "No connected database connections, please connect to a database first"
+        "No connected database connections, please connect to a database first",
       );
       return;
     }
@@ -1037,11 +1037,11 @@ export class DatabaseProvider {
   private async handleCollectionBrowserMessage(
     message: any,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     console.log(
       "[DatabaseProvider] handleCollectionBrowserMessage:",
-      message.type
+      message.type,
     );
 
     try {
@@ -1053,7 +1053,7 @@ export class DatabaseProvider {
           await this.loadCollectionData(
             message.data.collectionName,
             panel,
-            connection
+            connection,
           );
           break;
         case "refreshCollections":
@@ -1067,7 +1067,7 @@ export class DatabaseProvider {
           await this.handleSelectDatabase(
             message.data.database,
             panel,
-            connection
+            connection,
           );
           break;
         case "createDatabase":
@@ -1138,7 +1138,7 @@ export class DatabaseProvider {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(
         "[DatabaseProvider] Unhandled error in handleCollectionBrowserMessage:",
-        errorMsg
+        errorMsg,
       );
       this.addWarning("error", `Operation failed: ${errorMsg}`);
 
@@ -1192,7 +1192,7 @@ export class DatabaseProvider {
    */
   private async handleLoadDatabases(
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (this.isSeekDBConnection(connection)) {
       try {
@@ -1217,7 +1217,7 @@ export class DatabaseProvider {
   private async handleSelectDatabase(
     dbName: string,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     // Update connection's database
     const connIndex = this.connections.findIndex((c) => c.id === connection.id);
@@ -1228,8 +1228,8 @@ export class DatabaseProvider {
 
       // Recreate client
       if (this.isSeekDBConnection(connection)) {
-        await this.closeSeekDBClients(connection.id);
-        const clients = await this.createSeekDBClients(connection);
+        await this.closeSeekdbClients(connection.id);
+        const clients = await this.createSeekdbClients(connection);
         this.seekdbClients.set(connection.id, clients);
       }
 
@@ -1256,7 +1256,7 @@ export class DatabaseProvider {
    */
   public async selectDatabaseForConnection(
     connectionId: string,
-    dbName: string
+    dbName: string,
   ): Promise<void> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
@@ -1272,8 +1272,8 @@ export class DatabaseProvider {
 
       // Recreate client
       if (this.isSeekDBConnection(connection)) {
-        await this.closeSeekDBClients(connection.id);
-        const clients = await this.createSeekDBClients(connection);
+        await this.closeSeekdbClients(connection.id);
+        const clients = await this.createSeekdbClients(connection);
         this.seekdbClients.set(connection.id, clients);
       }
 
@@ -1301,7 +1301,7 @@ export class DatabaseProvider {
   private async handleCreateDatabase(
     dbName: string,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     try {
       await this.createServerDatabase(connection.id, dbName);
@@ -1326,7 +1326,7 @@ export class DatabaseProvider {
   private async handleDeleteDatabase(
     dbName: string,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     try {
       await this.deleteServerDatabase(connection.id, dbName);
@@ -1351,7 +1351,7 @@ export class DatabaseProvider {
   private async executeQuery(
     sql: string,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -1380,7 +1380,7 @@ export class DatabaseProvider {
       try {
         const result = await this.executeOceanBaseCloudQuery(
           connection.id,
-          sql
+          sql,
         );
         const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
 
@@ -1414,7 +1414,7 @@ export class DatabaseProvider {
    */
   private async executeOceanBaseCloudQuery(
     connectionId: string,
-    sql: string
+    sql: string,
   ): Promise<QueryResultData> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
@@ -1450,7 +1450,7 @@ export class DatabaseProvider {
       const embeddingColumns = ["embedding", "_vector", "vector", "embeddings"];
       const sortedColumns = this.sortColumnsWithMetadataFirst(
         columns,
-        embeddingColumns
+        embeddingColumns,
       );
 
       const resultRows = Array.isArray(rows) ? (rows as any[]) : [];
@@ -1485,7 +1485,7 @@ export class DatabaseProvider {
    */
   private async executeSeekDBQuery(
     connectionId: string,
-    sql: string
+    sql: string,
   ): Promise<QueryResultData> {
     const connection = this.connections.find((c) => c.id === connectionId);
     if (!connection) {
@@ -1493,7 +1493,7 @@ export class DatabaseProvider {
     }
 
     // Create temporary client to execute query
-    const tempClient = new SeekDBClient({
+    const tempClient = new SeekdbClient({
       host: connection.host,
       port: connection.port,
       user: connection.user,
@@ -1504,7 +1504,7 @@ export class DatabaseProvider {
 
     try {
       // Use mysql2 to execute SQL directly
-      // SeekDBClient uses mysql2 internally, we create a new connection to execute raw SQL
+      // SeekdbClient uses mysql2 internally, we create a new connection to execute raw SQL
       const mysql = await import("mysql2/promise");
       const conn = await mysql.createConnection({
         host: connection.host,
@@ -1529,7 +1529,7 @@ export class DatabaseProvider {
       const embeddingColumns = ["embedding", "_vector", "vector", "embeddings"];
       const sortedColumns = this.sortColumnsWithMetadataFirst(
         columns,
-        embeddingColumns
+        embeddingColumns,
       );
 
       const resultRows = Array.isArray(rows) ? (rows as any[]) : [];
@@ -1609,18 +1609,18 @@ export class DatabaseProvider {
    */
   private sortColumnsWithMetadataFirst(
     columns: { name: string; type: string }[],
-    embeddingColumns: string[]
+    embeddingColumns: string[],
   ): { name: string; type: string }[] {
     const embeddingSet = new Set(
-      embeddingColumns.map((name) => name.toLowerCase())
+      embeddingColumns.map((name) => name.toLowerCase()),
     );
 
     // Find metadata and embedding column indices
     const metadataIndex = columns.findIndex(
-      (col) => col.name.toLowerCase() === "metadata"
+      (col) => col.name.toLowerCase() === "metadata",
     );
     const firstEmbeddingIndex = columns.findIndex((col) =>
-      embeddingSet.has(col.name.toLowerCase())
+      embeddingSet.has(col.name.toLowerCase()),
     );
 
     // If both exist and metadata is after embedding, swap them
@@ -1650,12 +1650,19 @@ export class DatabaseProvider {
   private async loadCollectionData(
     collectionName: string,
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (this.isSeekDBConnection(connection)) {
       try {
+        // For SeekDB, collection names from listCollections() are clean (without prefix)
+        // But actual table names have 'c$v1$' prefix, so we need to add it back for SQL queries
+        const COLLECTION_PREFIX = "c$v1$";
+        const tableName = collectionName.startsWith(COLLECTION_PREFIX)
+          ? collectionName
+          : `${COLLECTION_PREFIX}${collectionName}`;
+
         // 构建 SELECT 查询
-        const sql = `SELECT * FROM \`${collectionName}\` LIMIT 1000`;
+        const sql = `SELECT * FROM \`${tableName}\` LIMIT 1000`;
         const result = await this.executeSeekDBQuery(connection.id, sql);
 
         panel.webview.postMessage({
@@ -1679,7 +1686,7 @@ export class DatabaseProvider {
         const sql = `SELECT * FROM \`${collectionName}\` LIMIT 1000`;
         const result = await this.executeOceanBaseCloudQuery(
           connection.id,
-          sql
+          sql,
         );
 
         panel.webview.postMessage({
@@ -1715,19 +1722,25 @@ export class DatabaseProvider {
    */
   private async refreshCollections(
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     console.log(
       "[DatabaseProvider] refreshCollections called, isSeekDB:",
       this.isSeekDBConnection(connection),
       "isOceanBaseCloud:",
-      this.isOceanBaseCloudConnection(connection)
+      this.isOceanBaseCloudConnection(connection),
     );
     if (this.isSeekDBConnection(connection)) {
       try {
-        console.log("[DatabaseProvider] Getting SeekDB collections...");
+        console.log(
+          "[DatabaseProvider] Getting SeekDB collections...",
+          `Connection: ${connection.name}, Database: ${connection.database || DEFAULT_DATABASE}`,
+        );
         const collections = await this.getSeekDBCollections(connection);
-        console.log("[DatabaseProvider] Got collections:", collections.length);
+        console.log(
+          `[DatabaseProvider] Got ${collections.length} collections:`,
+          collections.map((c) => c.name).join(", ") || "(none)",
+        );
         panel.webview.postMessage({
           type: "collectionsList",
           data: { collections },
@@ -1735,9 +1748,11 @@ export class DatabaseProvider {
         console.log("[DatabaseProvider] Sent collectionsList message");
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
         console.error(
           "[DatabaseProvider] Error getting collections:",
-          errorMsg
+          errorMsg,
+          errorStack ? `\nStack: ${errorStack}` : "",
         );
         this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
         panel.webview.postMessage({
@@ -1748,7 +1763,7 @@ export class DatabaseProvider {
     } else if (this.isOceanBaseCloudConnection(connection)) {
       try {
         console.log(
-          "[DatabaseProvider] Getting OceanBase Cloud collections..."
+          "[DatabaseProvider] Getting OceanBase Cloud collections...",
         );
         const collections = await this.getOceanBaseCloudCollections(connection);
         console.log("[DatabaseProvider] Got collections:", collections.length);
@@ -1761,7 +1776,7 @@ export class DatabaseProvider {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(
           "[DatabaseProvider] Error getting collections:",
-          errorMsg
+          errorMsg,
         );
         this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
         panel.webview.postMessage({
@@ -1784,7 +1799,7 @@ export class DatabaseProvider {
    * Get OceanBase Cloud collections list (tables)
    */
   private async getOceanBaseCloudCollections(
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<CollectionInfo[]> {
     const mysql = await import("mysql2/promise");
 
@@ -1817,11 +1832,85 @@ export class DatabaseProvider {
   }
 
   /**
-   * Get SeekDB collections list
+   * Get SeekDB collections list using seekdb-js SDK
+   * The SDK automatically handles the 'c$v1$' prefix internally,
+   * so the returned collection names are already clean (without prefix).
+   * Falls back to SHOW TABLES if listCollections() returns empty (for compatibility with legacy tables).
    */
   private async getSeekDBCollections(
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<CollectionInfo[]> {
+    // Get or create SeekdbClient instance
+    let client = this.getSeekdbClient(connection.id);
+    if (!client) {
+      const clients = await this.createSeekdbClients(connection);
+      this.seekdbClients.set(connection.id, clients);
+      client = clients.client;
+    }
+
+    if (!client) {
+      throw new Error("Failed to create SeekDB client");
+    }
+
+    // Check if client is connected
+    if (!client.isConnected()) {
+      console.warn(
+        "[DatabaseProvider] SeekDB client is not connected, attempting to reconnect...",
+      );
+      // Close and recreate client
+      await this.closeSeekdbClients(connection.id);
+      const clients = await this.createSeekdbClients(connection);
+      this.seekdbClients.set(connection.id, clients);
+      client = clients.client;
+      if (!client) {
+        throw new Error("Failed to recreate SeekDB client");
+      }
+    }
+
+    try {
+      // Use standard listCollections API from seekdb-js SDK
+      // The SDK automatically handles 'c$v1$' prefix removal internally
+      const allCollections = await client.listCollections();
+
+      console.log(
+        `[DatabaseProvider] listCollections() returned ${allCollections.length} collections`,
+      );
+
+      if (allCollections.length > 0) {
+        const collectionNames = allCollections.map((col) => col.name);
+        console.log(
+          `[DatabaseProvider] Collection names from SDK: ${collectionNames.join(", ")}`,
+        );
+      }
+
+      // If SDK returns collections, use them
+      if (allCollections.length > 0) {
+        return allCollections.map((col) => ({
+          name: col.name,
+          type: "collection",
+        }));
+      }
+
+      // If SDK returns empty, fall back to SHOW TABLES for compatibility
+      // This handles cases where tables exist but weren't created via SDK
+      // or when SDK's getCollection() fails for some tables
+      console.log(
+        "[DatabaseProvider] listCollections() returned empty, falling back to SHOW TABLES",
+      );
+    } catch (sdkError) {
+      const sdkErrorMsg =
+        sdkError instanceof Error ? sdkError.message : String(sdkError);
+      const sdkErrorStack =
+        sdkError instanceof Error ? sdkError.stack : undefined;
+      console.warn(
+        `[DatabaseProvider] listCollections() failed: ${sdkErrorMsg}`,
+        sdkErrorStack ? `\nStack: ${sdkErrorStack}` : "",
+      );
+      console.log("[DatabaseProvider] Falling back to SHOW TABLES");
+    }
+
+    // Fallback: Use SHOW TABLES to get all tables (for compatibility)
+    // When falling back, we need to remove 'c$v1$' prefix to match SDK behavior
     const mysql = await import("mysql2/promise");
     const conn = await mysql.createConnection({
       host: connection.host,
@@ -1833,14 +1922,22 @@ export class DatabaseProvider {
 
     try {
       const [rows] = await conn.execute("SHOW TABLES");
+      const COLLECTION_PREFIX = "c$v1$";
       const collections = (rows as any[]).map((row: any) => {
-        const collectionName = Object.values(row)[0] as string;
+        const tableName = Object.values(row)[0] as string;
+        // Remove 'c$v1$' prefix if present to match SDK's listCollections() behavior
+        const collectionName = tableName.startsWith(COLLECTION_PREFIX)
+          ? tableName.slice(COLLECTION_PREFIX.length)
+          : tableName;
         return {
           name: collectionName,
           type: "collection",
         };
       });
 
+      console.log(
+        `[DatabaseProvider] SHOW TABLES returned ${collections.length} tables (after prefix removal)`,
+      );
       return collections;
     } finally {
       await conn.end();
@@ -1970,7 +2067,7 @@ export class DatabaseProvider {
       apiKey?: string;
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -1998,7 +2095,7 @@ export class DatabaseProvider {
       if (embeddingType && embeddingType !== "builtin") {
         // If external model is specified, create service instance from config
         const config = vscode.workspace.getConfiguration(
-          "seekdb.database.embedding"
+          "seekdb.database.embedding",
         );
 
         switch (embeddingType) {
@@ -2007,7 +2104,7 @@ export class DatabaseProvider {
               apiKey || config.get<string>("openaiApiKey", "");
             const openaiBaseUrl = config.get<string>(
               "openaiBaseUrl",
-              "https://api.openai.com/v1"
+              "https://api.openai.com/v1",
             );
             embeddingService = EmbeddingServiceFactory.create("openai", {
               apiKey: openaiApiKey,
@@ -2018,11 +2115,11 @@ export class DatabaseProvider {
           case "ollama": {
             const ollamaBaseUrl = config.get<string>(
               "ollamaBaseUrl",
-              "http://localhost:11434"
+              "http://localhost:11434",
             );
             const ollamaModel = config.get<string>(
               "ollamaModel",
-              "nomic-embed-text"
+              "nomic-embed-text",
             );
             embeddingService = EmbeddingServiceFactory.create("ollama", {
               ollamaBaseUrl,
@@ -2035,7 +2132,7 @@ export class DatabaseProvider {
               apiKey || config.get<string>("anthropicApiKey", "");
             const anthropicBaseUrl = config.get<string>(
               "anthropicBaseUrl",
-              "https://api.anthropic.com"
+              "https://api.anthropic.com",
             );
             embeddingService = EmbeddingServiceFactory.create("anthropic", {
               apiKey: anthropicApiKey,
@@ -2047,7 +2144,7 @@ export class DatabaseProvider {
             const qwenApiKey = apiKey || config.get<string>("qwenApiKey", "");
             const qwenBaseUrl = config.get<string>(
               "qwenBaseUrl",
-              "https://dashscope.aliyuncs.com"
+              "https://dashscope.aliyuncs.com",
             );
             embeddingService = EmbeddingServiceFactory.create("qwen", {
               apiKey: qwenApiKey,
@@ -2063,7 +2160,7 @@ export class DatabaseProvider {
       if (!embeddingService) {
         // Create service using default settings from config
         embeddingService = EmbeddingServiceFactory.createFromConfig(
-          vscode.workspace.getConfiguration("seekdb.database")
+          vscode.workspace.getConfiguration("seekdb.database"),
         );
       }
 
@@ -2079,7 +2176,13 @@ export class DatabaseProvider {
       }
 
       // Get data from collection
-      const sql = `SELECT * FROM \`${collectionName}\` LIMIT 1000`;
+      // For SeekDB, collection names from listCollections() are clean (without prefix)
+      // But actual table names have 'c$v1$' prefix, so we need to add it back for SQL queries
+      const COLLECTION_PREFIX = "c$v1$";
+      const tableName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName
+        : `${COLLECTION_PREFIX}${collectionName}`;
+      const sql = `SELECT * FROM \`${tableName}\` LIMIT 1000`;
       const collectionData = await this.executeSeekDBQuery(connection.id, sql);
 
       if (!collectionData.rows || collectionData.rows.length === 0) {
@@ -2149,11 +2252,11 @@ export class DatabaseProvider {
 
       if (vectorFieldName) {
         vscode.window.showInformationMessage(
-          `Detected vector field "${vectorFieldName}", using stored vectors for calculation...`
+          `Detected vector field "${vectorFieldName}", using stored vectors for calculation...`,
         );
       } else {
         vscode.window.showInformationMessage(
-          `No vector field detected, processing ${totalRows} rows in parallel for vectorization...`
+          `No vector field detected, processing ${totalRows} rows in parallel for vectorization...`,
         );
       }
 
@@ -2254,14 +2357,14 @@ export class DatabaseProvider {
       // Log statistics (only output in dev mode)
       if (vectorFieldName) {
         console.log(
-          `Vector search statistics: using stored vector field "${vectorFieldName}", ${vectorFieldUsed} records`
+          `Vector search statistics: using stored vector field "${vectorFieldName}", ${vectorFieldUsed} records`,
         );
       } else if (cacheHits > 0 || cacheMisses > 0) {
         const hitRate = ((cacheHits / (cacheHits + cacheMisses)) * 100).toFixed(
-          1
+          1,
         );
         console.log(
-          `Vector search cache statistics: hit ${cacheHits} times, miss ${cacheMisses} times, hit rate ${hitRate}%`
+          `Vector search cache statistics: hit ${cacheHits} times, miss ${cacheMisses} times, hit rate ${hitRate}%`,
         );
       }
 
@@ -2299,6 +2402,8 @@ export class DatabaseProvider {
 
           // Infer model by vector dimension
           if (vectorLength === 384) {
+            // 384 dimensions usually means all-MiniLM-L6-v2
+            // Note: Simple TF-IDF also produces 384 dimensions, but we assume it's the real model
             collectionModelName = "Builtin (Xenova/all-MiniLM-L6-v2)";
           } else if (vectorLength === 1536) {
             collectionModelName = "OpenAI text-embedding-3-small";
@@ -2329,6 +2434,30 @@ export class DatabaseProvider {
         executionTime: `${((Date.now() - startTime) / 1000).toFixed(3)}s`,
       };
 
+      // Check if models might be inconsistent and warn user
+      let modelWarning: string | null = null;
+      if (collectionModelName && searchModelName) {
+        // Extract base model name for comparison (ignore prefixes like "Builtin", "OpenAI")
+        const normalizeModelName = (name: string) =>
+          name
+            .toLowerCase()
+            .replace(/^(builtin|openai|ollama|anthropic|qwen)\s*/, "")
+            .replace(/[()]/g, "")
+            .trim();
+
+        const collectionBase = normalizeModelName(collectionModelName);
+        const searchBase = normalizeModelName(searchModelName);
+
+        // If model names are significantly different, show warning
+        if (
+          collectionBase !== searchBase &&
+          !collectionBase.includes("unknown") &&
+          !searchBase.includes("unknown")
+        ) {
+          modelWarning = `⚠️ Model mismatch detected: Collection was vectorized with a different model than the search model. This may affect search accuracy.`;
+        }
+      }
+
       panel.webview.postMessage({
         type: "vectorSearchResult",
         data: {
@@ -2337,12 +2466,15 @@ export class DatabaseProvider {
           // Add model information
           collectionModelName,
           searchModelName,
+          modelWarning,
         },
       });
 
-      vscode.window.showInformationMessage(
-        `Vector search completed, found ${topResults.length} similar results`
-      );
+      const infoMessage = modelWarning
+        ? `Vector search completed with model mismatch warning`
+        : `Vector search completed, found ${topResults.length} similar results`;
+
+      vscode.window.showInformationMessage(infoMessage);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.addWarning("error", `Vector search failed: ${errorMsg}`);
@@ -2360,7 +2492,7 @@ export class DatabaseProvider {
    */
   private getCollectionBrowserHtml(
     webview: vscode.Webview,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): string {
     const isSeekDB = this.isSeekDBConnection(connection);
     const isOceanBaseCloud = this.isOceanBaseCloudConnection(connection);
@@ -2386,7 +2518,7 @@ export class DatabaseProvider {
    */
   private getConnectPageHtml(
     webview: vscode.Webview,
-    defaultConfig: any
+    defaultConfig: any,
   ): string {
     // Inject configuration into page
     const config = {
@@ -2424,7 +2556,7 @@ export class DatabaseProvider {
    */
   private async handleGetSavedQueries(
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const queries = this.getSavedQueries(connection.id);
     panel.webview.postMessage({
@@ -2439,7 +2571,7 @@ export class DatabaseProvider {
   private async handleSaveQuery(
     data: { name: string; sql: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const queries = this.getSavedQueries(connection.id);
     const now = Date.now();
@@ -2465,7 +2597,7 @@ export class DatabaseProvider {
   private async handleUpdateQuery(
     data: { id: string; name?: string; sql?: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const queries = this.getSavedQueries(connection.id);
     const index = queries.findIndex((q) => q.id === data.id);
@@ -2492,7 +2624,7 @@ export class DatabaseProvider {
   private async handleDeleteQuery(
     data: { id: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     const queries = this.getSavedQueries(connection.id);
     const filteredQueries = queries.filter((q) => q.id !== data.id);
@@ -2510,7 +2642,7 @@ export class DatabaseProvider {
   private async handleCreateCollection(
     data: { name: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2530,8 +2662,15 @@ export class DatabaseProvider {
         return;
       }
 
+      // For SeekDB, collection names should have 'c$v1$' prefix for table names
+      // If user provides clean name, add prefix; if already has prefix, use as is
+      const COLLECTION_PREFIX = "c$v1$";
+      const tableName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName
+        : `${COLLECTION_PREFIX}${collectionName}`;
+
       // Create table with basic structure (id and _vector fields for SeekDB)
-      const createTableSql = `CREATE TABLE IF NOT EXISTS \`${collectionName}\` (
+      const createTableSql = `CREATE TABLE IF NOT EXISTS \`${tableName}\` (
         \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
         \`content\` TEXT,
         \`_vector\` JSON,
@@ -2542,10 +2681,10 @@ export class DatabaseProvider {
 
       this.addWarning(
         "info",
-        `Successfully created collection: ${collectionName}`
+        `Successfully created collection: ${collectionName}`,
       );
       vscode.window.showInformationMessage(
-        `Successfully created collection: ${collectionName}`
+        `Successfully created collection: ${collectionName}`,
       );
 
       panel.webview.postMessage({
@@ -2568,7 +2707,7 @@ export class DatabaseProvider {
   private async handleDeleteCollection(
     data: { name: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2588,16 +2727,23 @@ export class DatabaseProvider {
         return;
       }
 
+      // For SeekDB, collection names should have 'c$v1$' prefix for table names
+      // If user provides clean name, add prefix; if already has prefix, use as is
+      const COLLECTION_PREFIX = "c$v1$";
+      const tableName = collectionName.startsWith(COLLECTION_PREFIX)
+        ? collectionName
+        : `${COLLECTION_PREFIX}${collectionName}`;
+
       // Drop table
-      const dropTableSql = `DROP TABLE IF EXISTS \`${collectionName}\``;
+      const dropTableSql = `DROP TABLE IF EXISTS \`${tableName}\``;
       await this.executeSeekDBQuery(connection.id, dropTableSql);
 
       this.addWarning(
         "info",
-        `Successfully deleted collection: ${collectionName}`
+        `Successfully deleted collection: ${collectionName}`,
       );
       vscode.window.showInformationMessage(
-        `Successfully deleted collection: ${collectionName}`
+        `Successfully deleted collection: ${collectionName}`,
       );
 
       panel.webview.postMessage({
@@ -2620,7 +2766,7 @@ export class DatabaseProvider {
   private async handleRenameCollection(
     data: { oldName: string; newName: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2650,16 +2796,26 @@ export class DatabaseProvider {
         return;
       }
 
+      // For SeekDB, collection names should have 'c$v1$' prefix for table names
+      // If user provides clean name, add prefix; if already has prefix, use as is
+      const COLLECTION_PREFIX = "c$v1$";
+      const oldTableName = oldName.startsWith(COLLECTION_PREFIX)
+        ? oldName
+        : `${COLLECTION_PREFIX}${oldName}`;
+      const newTableName = newName.startsWith(COLLECTION_PREFIX)
+        ? newName
+        : `${COLLECTION_PREFIX}${newName}`;
+
       // Rename table
-      const renameTableSql = `RENAME TABLE \`${oldName}\` TO \`${newName}\``;
+      const renameTableSql = `RENAME TABLE \`${oldTableName}\` TO \`${newTableName}\``;
       await this.executeSeekDBQuery(connection.id, renameTableSql);
 
       this.addWarning(
         "info",
-        `Successfully renamed collection: ${oldName} -> ${newName}`
+        `Successfully renamed collection: ${oldName} -> ${newName}`,
       );
       vscode.window.showInformationMessage(
-        `Successfully renamed collection: ${oldName} -> ${newName}`
+        `Successfully renamed collection: ${oldName} -> ${newName}`,
       );
 
       panel.webview.postMessage({
@@ -2686,7 +2842,7 @@ export class DatabaseProvider {
       rowData: Record<string, any>;
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2719,10 +2875,10 @@ export class DatabaseProvider {
       }
 
       // Get SeekDB client, try to reconnect if not connected
-      let client = this.getSeekDBClient(connection.id);
+      let client = this.getSeekdbClient(connection.id);
       if (!client && connection.connected) {
         try {
-          const clients = await this.createSeekDBClients(connection);
+          const clients = await this.createSeekdbClients(connection);
           this.seekdbClients.set(connection.id, clients);
           client = clients.client;
           this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
@@ -2748,6 +2904,9 @@ export class DatabaseProvider {
       }
 
       // Extract collection name (remove c$v1$ prefix if present)
+      // Note: SDK's getCollection() automatically adds 'c$v1$' prefix internally,
+      // so we must ensure the name passed to SDK is clean (without prefix).
+      // This defensive check handles cases where collectionName might already include the prefix.
       const COLLECTION_PREFIX = "c$v1$";
       const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
         ? collectionName.slice(COLLECTION_PREFIX.length)
@@ -2791,7 +2950,7 @@ export class DatabaseProvider {
 
       this.addWarning(
         "info",
-        `Successfully deleted document from ${collectionName}`
+        `Successfully deleted document from ${collectionName}`,
       );
 
       panel.webview.postMessage({
@@ -2819,7 +2978,7 @@ export class DatabaseProvider {
       updatedData: Record<string, any>;
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2841,10 +3000,10 @@ export class DatabaseProvider {
       }
 
       // Get SeekDB client, try to reconnect if not connected
-      let client = this.getSeekDBClient(connection.id);
+      let client = this.getSeekdbClient(connection.id);
       if (!client && connection.connected) {
         try {
-          const clients = await this.createSeekDBClients(connection);
+          const clients = await this.createSeekdbClients(connection);
           this.seekdbClients.set(connection.id, clients);
           client = clients.client;
           this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
@@ -2870,6 +3029,9 @@ export class DatabaseProvider {
       }
 
       // Extract collection name (remove c$v1$ prefix if present)
+      // Note: SDK's getCollection() automatically adds 'c$v1$' prefix internally,
+      // so we must ensure the name passed to SDK is clean (without prefix).
+      // This defensive check handles cases where collectionName might already include the prefix.
       const COLLECTION_PREFIX = "c$v1$";
       const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
         ? collectionName.slice(COLLECTION_PREFIX.length)
@@ -2895,7 +3057,7 @@ export class DatabaseProvider {
       // Show info message about using embedding model
       const modelName = embeddingFunction.name;
       vscode.window.showInformationMessage(
-        `Updating document with vectorization using: ${modelName}`
+        `Updating document with vectorization using: ${modelName}`,
       );
 
       // Get collection with embedding function for automatic vectorization
@@ -2932,7 +3094,7 @@ export class DatabaseProvider {
 
       this.addWarning(
         "info",
-        `Successfully updated document in ${collectionName} with vectorization`
+        `Successfully updated document in ${collectionName} with vectorization`,
       );
 
       panel.webview.postMessage({
@@ -2958,7 +3120,7 @@ export class DatabaseProvider {
       documentData: Record<string, any>;
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isSeekDBConnection(connection)) {
       panel.webview.postMessage({
@@ -2980,10 +3142,10 @@ export class DatabaseProvider {
       }
 
       // Get SeekDB client, try to reconnect if not connected
-      let client = this.getSeekDBClient(connection.id);
+      let client = this.getSeekdbClient(connection.id);
       if (!client && connection.connected) {
         try {
-          const clients = await this.createSeekDBClients(connection);
+          const clients = await this.createSeekdbClients(connection);
           this.seekdbClients.set(connection.id, clients);
           client = clients.client;
           this.addWarning("info", `Reconnected to seekdb: ${connection.name}`);
@@ -3009,6 +3171,9 @@ export class DatabaseProvider {
       }
 
       // Extract collection name (remove c$v1$ prefix if present)
+      // Note: SDK's getCollection() automatically adds 'c$v1$' prefix internally,
+      // so we must ensure the name passed to SDK is clean (without prefix).
+      // This defensive check handles cases where collectionName might already include the prefix.
       const COLLECTION_PREFIX = "c$v1$";
       const actualCollectionName = collectionName.startsWith(COLLECTION_PREFIX)
         ? collectionName.slice(COLLECTION_PREFIX.length)
@@ -3033,7 +3198,7 @@ export class DatabaseProvider {
       // Show info message about using embedding model
       const modelName = embeddingFunction.name;
       vscode.window.showInformationMessage(
-        `Adding document with vectorization using: ${modelName}`
+        `Adding document with vectorization using: ${modelName}`,
       );
 
       // Get collection with embedding function for automatic vectorization
@@ -3075,7 +3240,7 @@ export class DatabaseProvider {
 
       this.addWarning(
         "info",
-        `Successfully created document in ${collectionName} with vectorization`
+        `Successfully created document in ${collectionName} with vectorization`,
       );
 
       panel.webview.postMessage({
@@ -3102,7 +3267,7 @@ export class DatabaseProvider {
   private async handleCreateTable(
     data: { name: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isOceanBaseCloudConnection(connection)) {
       panel.webview.postMessage({
@@ -3135,7 +3300,7 @@ export class DatabaseProvider {
 
       this.addWarning("info", `Successfully created table: ${tableName}`);
       vscode.window.showInformationMessage(
-        `Successfully created table: ${tableName}`
+        `Successfully created table: ${tableName}`,
       );
 
       panel.webview.postMessage({
@@ -3158,7 +3323,7 @@ export class DatabaseProvider {
   private async handleDeleteTable(
     data: { name: string },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isOceanBaseCloudConnection(connection)) {
       panel.webview.postMessage({
@@ -3186,7 +3351,7 @@ export class DatabaseProvider {
 
       this.addWarning("info", `Successfully deleted table: ${tableName}`);
       vscode.window.showInformationMessage(
-        `Successfully deleted table: ${tableName}`
+        `Successfully deleted table: ${tableName}`,
       );
 
       panel.webview.postMessage({
@@ -3217,7 +3382,7 @@ export class DatabaseProvider {
       columns?: { name: string; type: string }[];
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isOceanBaseCloudConnection(connection)) {
       panel.webview.postMessage({
@@ -3269,7 +3434,7 @@ export class DatabaseProvider {
       }
 
       const insertSql = `INSERT INTO \`${tableName}\` (${columns.join(
-        ", "
+        ", ",
       )}) VALUES (${values.join(", ")})`;
       await this.executeOceanBaseCloudQuery(connection.id, insertSql);
 
@@ -3300,7 +3465,7 @@ export class DatabaseProvider {
       columns?: { name: string; type: string }[];
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isOceanBaseCloudConnection(connection)) {
       panel.webview.postMessage({
@@ -3336,7 +3501,7 @@ export class DatabaseProvider {
           setClauses.push(`\`${key}\` = ${value ? 1 : 0}`);
         } else {
           setClauses.push(
-            `\`${key}\` = '${JSON.stringify(value).replace(/'/g, "''")}'`
+            `\`${key}\` = '${JSON.stringify(value).replace(/'/g, "''")}'`,
           );
         }
       }
@@ -3366,7 +3531,7 @@ export class DatabaseProvider {
       }
 
       const updateSql = `UPDATE \`${tableName}\` SET ${setClauses.join(
-        ", "
+        ", ",
       )} WHERE ${whereClauses.join(" AND ")} LIMIT 1`;
       await this.executeOceanBaseCloudQuery(connection.id, updateSql);
 
@@ -3396,7 +3561,7 @@ export class DatabaseProvider {
       columns?: { name: string; type: string }[];
     },
     panel: vscode.WebviewPanel,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ): Promise<void> {
     if (!this.isOceanBaseCloudConnection(connection)) {
       panel.webview.postMessage({
@@ -3444,7 +3609,7 @@ export class DatabaseProvider {
       }
 
       const deleteSql = `DELETE FROM \`${tableName}\` WHERE ${whereClauses.join(
-        " AND "
+        " AND ",
       )} LIMIT 1`;
       await this.executeOceanBaseCloudQuery(connection.id, deleteSql);
 

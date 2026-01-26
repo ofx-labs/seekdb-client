@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { pipeline, env } from "@huggingface/transformers";
+import * as path from "path";
+import * as fs from "fs";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2"; // 默认模型名称
 
@@ -32,7 +34,7 @@ export class OpenAIEmbeddingService implements EmbeddingService {
   constructor(
     apiKey: string,
     model: string = "text-embedding-3-small",
-    baseUrl: string = "https://api.openai.com/v1"
+    baseUrl: string = "https://api.openai.com/v1",
   ) {
     this.apiKey = apiKey;
     this.model = model;
@@ -61,7 +63,7 @@ export class OpenAIEmbeddingService implements EmbeddingService {
       if (!response.ok) {
         const error = await response.json();
         throw new Error(
-          `OpenAI API 错误: ${error.error?.message || response.statusText}`
+          `OpenAI API 错误: ${error.error?.message || response.statusText}`,
         );
       }
 
@@ -89,7 +91,7 @@ export class OllamaEmbeddingService implements EmbeddingService {
 
   constructor(
     baseUrl: string = "http://localhost:11434",
-    model: string = "nomic-embed-text"
+    model: string = "nomic-embed-text",
   ) {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
     this.model = model;
@@ -112,7 +114,7 @@ export class OllamaEmbeddingService implements EmbeddingService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Ollama API 错误: ${response.statusText} - ${errorText}`
+          `Ollama API 错误: ${response.statusText} - ${errorText}`,
         );
       }
 
@@ -192,7 +194,7 @@ export class AnthropicEmbeddingService implements EmbeddingService {
           .json()
           .catch(() => ({ error: { message: response.statusText } }));
         throw new Error(
-          `Anthropic API 错误: ${error.error?.message || response.statusText}`
+          `Anthropic API 错误: ${error.error?.message || response.statusText}`,
         );
       }
 
@@ -231,7 +233,7 @@ export class QwenEmbeddingService implements EmbeddingService {
   constructor(
     apiKey: string,
     baseUrl: string = "https://dashscope.aliyuncs.com",
-    model: string = "text-embedding-v2"
+    model: string = "text-embedding-v2",
   ) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // 移除末尾斜杠
@@ -266,7 +268,7 @@ export class QwenEmbeddingService implements EmbeddingService {
         throw new Error(
           `千问 API 错误: ${
             error.error?.message || error.message || response.statusText
-          }`
+          }`,
         );
       }
 
@@ -331,13 +333,59 @@ export class BuiltinEmbeddingService implements EmbeddingService {
       throw new Error(
         `内置模型向量化失败: ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
     }
   }
 
   constructor(mirrorUrl: string = "https://hf-mirror.com") {
     this.mirrorUrl = mirrorUrl;
+  }
+
+  /**
+   * 检查模型是否已缓存在本地
+   */
+  private checkModelCache(): boolean {
+    try {
+      // HuggingFace 缓存目录通常在 ~/.cache/huggingface/hub/models--Xenova--all-MiniLM-L6-v2
+      const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+      if (!homeDir) {
+        return false;
+      }
+
+      // 构建缓存路径
+      const cacheDir = path.join(
+        homeDir,
+        ".cache",
+        "huggingface",
+        "hub",
+        `models--Xenova--all-MiniLM-L6-v2`,
+      );
+
+      // 检查目录是否存在
+      if (fs.existsSync(cacheDir)) {
+        // 检查是否有模型文件（通常包含 .onnx 或 .bin 文件）
+        const files = fs.readdirSync(cacheDir, { recursive: true });
+        const hasModelFiles = files.some(
+          (file: string | Buffer) => {
+            const fileName = typeof file === "string" ? file : file.toString();
+            return (
+              fileName.endsWith(".onnx") ||
+              fileName.endsWith(".bin") ||
+              fileName.endsWith(".json")
+            );
+          },
+        );
+        if (hasModelFiles) {
+          console.log(`检测到本地模型缓存: ${cacheDir}`);
+          return true;
+        }
+      }
+    } catch (error) {
+      // 忽略检查错误，继续尝试加载
+      console.warn("检查模型缓存时出错:", error);
+    }
+    return false;
   }
 
   private async initialize(): Promise<void> {
@@ -353,9 +401,12 @@ export class BuiltinEmbeddingService implements EmbeddingService {
 
       if (!pipeline) {
         throw new Error(
-          "无法从 @huggingface/transformers 中获取 pipeline 函数"
+          "无法从 @huggingface/transformers 中获取 pipeline 函数",
         );
       }
+
+      // 检查本地缓存
+      const hasCache = this.checkModelCache();
 
       // 配置 HuggingFace 镜像地址（支持中国用户）
       // Set HuggingFace mirror for Chinese users, matching reference code
@@ -364,39 +415,66 @@ export class BuiltinEmbeddingService implements EmbeddingService {
         console.log(`配置 HuggingFace 镜像地址: ${env.remoteHost}`);
       }
 
-      // 尝试加载 pipeline，使用重试机制
-      let retries = 2;
+      // 如果本地有缓存，优先使用本地缓存（不需要网络）
+      // 如果没有缓存，需要从网络下载
+      let retries = hasCache ? 1 : 3; // 有缓存时只重试1次，无缓存时重试3次
       let lastError: Error | null = null;
 
       while (retries > 0) {
         try {
-          console.log(`正在下载/加载模型 ${MODEL_NAME}...`);
-          this.pipeline = await pipeline("feature-extraction", MODEL_NAME);
-          console.log("模型加载成功");
+          if (hasCache) {
+            console.log(`从本地缓存加载模型 ${MODEL_NAME}...`);
+          } else {
+            console.log(
+              `正在从 ${this.mirrorUrl} 下载/加载模型 ${MODEL_NAME}...`,
+            );
+            console.log(
+              "提示: 模型首次下载需要网络连接，下载后会缓存在 ~/.cache/huggingface 目录",
+            );
+          }
 
+          // 设置超时时间（有缓存时30秒，无缓存时120秒）
+          const timeout = hasCache ? 30000 : 120000;
+          const pipelinePromise = pipeline("feature-extraction", MODEL_NAME);
+
+          this.pipeline = await Promise.race([
+            pipelinePromise,
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error("模型加载超时")),
+                timeout,
+              ),
+            ),
+          ]) as any;
+
+          console.log("模型加载成功");
           this.initialized = true;
           return; // 成功，退出
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
           retries--;
 
+          const isNetworkError =
+            lastError.message.includes("fetch failed") ||
+            lastError.message.includes("network") ||
+            lastError.message.includes("ECONNREFUSED") ||
+            lastError.message.includes("ETIMEDOUT") ||
+            lastError.message.includes("ENOTFOUND") ||
+            lastError.message.includes("ECONNRESET");
+
           // 如果是网络错误且还有重试次数，等待后重试
-          if (
-            retries > 0 &&
-            (lastError.message.includes("fetch failed") ||
-              lastError.message.includes("network") ||
-              lastError.message.includes("ECONNREFUSED") ||
-              lastError.message.includes("ETIMEDOUT"))
-          ) {
+          if (retries > 0 && isNetworkError) {
+            const waitTime = hasCache ? 1000 : 2000; // 有缓存时等待1秒，无缓存时等待2秒
             console.warn(
-              `模型加载失败，${retries} 次重试剩余...`,
-              lastError.message
+              `模型加载失败（网络错误），${retries} 次重试剩余...`,
+              lastError.message,
             );
-            // 等待 1 秒后重试
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
             continue;
           }
-          throw lastError; // 没有重试次数或不是网络错误，抛出异常
+
+          // 如果是其他错误或没有重试次数，抛出异常
+          throw lastError;
         }
       }
     } catch (error) {
@@ -413,19 +491,64 @@ export class BuiltinEmbeddingService implements EmbeddingService {
         modulePath = null;
       }
 
-      console.warn("无法加载 @huggingface/transformers，使用简单向量化方案", {
+      const isNetworkError =
+        errorMessage.includes("fetch failed") ||
+        errorMessage.includes("network") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ETIMEDOUT") ||
+        errorMessage.includes("ENOTFOUND") ||
+        errorMessage.includes("ECONNRESET");
+
+      const hasCache = this.checkModelCache();
+
+      let hint = "";
+      if (!modulePath) {
+        hint = "模块未找到，请运行 npm install @huggingface/transformers";
+      } else if (isNetworkError) {
+        if (hasCache) {
+          hint =
+            "检测到本地缓存，但加载失败。可能是缓存损坏，请删除 ~/.cache/huggingface/hub/models--Xenova--all-MiniLM-L6-v2 目录后重试。";
+        } else {
+          hint =
+            "网络连接失败，无法从 Hugging Face Hub 下载模型。\n" +
+            "解决方案：\n" +
+            "1. 检查网络连接或配置代理\n" +
+            "2. 确保可以访问 " +
+            this.mirrorUrl +
+            "\n" +
+            "3. 模型首次下载后会缓存在 ~/.cache/huggingface 目录\n" +
+            "4. 如果网络受限，可以手动下载模型到缓存目录";
+        }
+      } else {
+        hint =
+          "模型初始化失败。错误: " +
+          errorMessage +
+          "\n请检查控制台日志获取更多信息。";
+      }
+
+      console.warn("无法加载 HuggingFace 模型，使用简单向量化方案", {
         message: errorMessage,
         stack: errorStack,
         nodeVersion: process.version,
         platform: process.platform,
         modulePath: modulePath || "未找到模块路径",
-        // 常见原因提示
-        hint: modulePath
-          ? errorMessage.includes("fetch failed")
-            ? "网络连接失败，无法从 Hugging Face Hub 下载模型。请检查网络连接或配置代理。模型会缓存在 ~/.cache/huggingface 目录。"
-            : "模块已安装，但初始化失败。可能是网络问题或模型下载失败。"
-          : "模块未找到，请运行 npm install",
+        hasCache,
+        hint,
       });
+
+      // 显示用户友好的警告
+      if (isNetworkError && !hasCache) {
+        vscode.window.showWarningMessage(
+          `无法下载模型 ${MODEL_NAME}。使用简单向量化方案（准确度较低）。\n${hint}`,
+          "查看详情",
+        ).then((action) => {
+          if (action === "查看详情") {
+            vscode.window.showInformationMessage(
+              `模型下载失败详情:\n${hint}\n\n错误信息: ${errorMessage}`,
+            );
+          }
+        });
+      }
 
       this.pipeline = new SimpleEmbeddingPipeline();
       this.initialized = true;
@@ -499,7 +622,7 @@ export class EmbeddingServiceFactory {
       ollamaBaseUrl?: string;
       ollamaModel?: string;
       mirrorUrl?: string;
-    }
+    },
   ): EmbeddingService {
     switch (type) {
       case "openai":
@@ -509,13 +632,13 @@ export class EmbeddingServiceFactory {
         return new OpenAIEmbeddingService(
           options.apiKey,
           options.model || "text-embedding-3-small",
-          options.baseUrl || "https://api.openai.com/v1"
+          options.baseUrl || "https://api.openai.com/v1",
         );
 
       case "ollama":
         return new OllamaEmbeddingService(
           options?.ollamaBaseUrl || "http://localhost:11434",
-          options?.ollamaModel || "nomic-embed-text"
+          options?.ollamaModel || "nomic-embed-text",
         );
 
       case "anthropic":
@@ -524,7 +647,7 @@ export class EmbeddingServiceFactory {
         }
         return new AnthropicEmbeddingService(
           options.apiKey,
-          options.baseUrl || "https://api.anthropic.com"
+          options.baseUrl || "https://api.anthropic.com",
         );
 
       case "qwen":
@@ -534,13 +657,13 @@ export class EmbeddingServiceFactory {
         return new QwenEmbeddingService(
           options.apiKey,
           options.baseUrl || "https://dashscope.aliyuncs.com",
-          options.model || "text-embedding-v2"
+          options.model || "text-embedding-v2",
         );
 
       case "builtin":
       default:
         return new BuiltinEmbeddingService(
-          options?.mirrorUrl || "https://hf-mirror.com"
+          options?.mirrorUrl || "https://hf-mirror.com",
         );
     }
   }
@@ -549,17 +672,17 @@ export class EmbeddingServiceFactory {
    * 从配置创建向量化服务
    */
   static createFromConfig(
-    config: vscode.WorkspaceConfiguration
+    config: vscode.WorkspaceConfiguration,
   ): EmbeddingService {
     const embeddingType = config.get<string>(
       "database.embedding.type",
-      "builtin"
+      "builtin",
     );
 
     // 获取 HuggingFace 镜像配置
     const mirrorType = config.get<string>(
       "database.embedding.huggingFaceMirror",
-      "china"
+      "china",
     );
     const mirrorUrl =
       mirrorType === "china"
@@ -570,11 +693,11 @@ export class EmbeddingServiceFactory {
       case "openai": {
         const apiKey = config.get<string>(
           "database.embedding.openaiApiKey",
-          ""
+          "",
         );
         const baseUrl = config.get<string>(
           "database.embedding.openaiBaseUrl",
-          "https://api.openai.com/v1"
+          "https://api.openai.com/v1",
         );
         return this.create("openai", { apiKey, baseUrl });
       }
@@ -582,11 +705,11 @@ export class EmbeddingServiceFactory {
       case "ollama": {
         const ollamaBaseUrl = config.get<string>(
           "database.embedding.ollamaBaseUrl",
-          "http://localhost:11434"
+          "http://localhost:11434",
         );
         const ollamaModel = config.get<string>(
           "database.embedding.ollamaModel",
-          "nomic-embed-text"
+          "nomic-embed-text",
         );
         return this.create("ollama", { ollamaBaseUrl, ollamaModel });
       }
@@ -594,11 +717,11 @@ export class EmbeddingServiceFactory {
       case "anthropic": {
         const apiKey = config.get<string>(
           "database.embedding.anthropicApiKey",
-          ""
+          "",
         );
         const baseUrl = config.get<string>(
           "database.embedding.anthropicBaseUrl",
-          "https://api.anthropic.com"
+          "https://api.anthropic.com",
         );
         return this.create("anthropic", { apiKey, baseUrl });
       }
@@ -607,7 +730,7 @@ export class EmbeddingServiceFactory {
         const apiKey = config.get<string>("database.embedding.qwenApiKey", "");
         const baseUrl = config.get<string>(
           "database.embedding.qwenBaseUrl",
-          "https://dashscope.aliyuncs.com"
+          "https://dashscope.aliyuncs.com",
         );
         return this.create("qwen", { apiKey, baseUrl });
       }

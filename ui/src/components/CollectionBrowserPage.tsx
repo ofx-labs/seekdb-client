@@ -89,7 +89,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     initialIsOceanBaseCloud ?? window.__VSCODE_IS_OCEANBASE_CLOUD__ ?? false;
   // 使用 state 管理 connectionInfo，支持动态更新
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>(
-    initialConnectionInfo
+    initialConnectionInfo,
   );
 
   // 术语差异化：SeekDB 使用 collection/document，云数据库使用 table/row
@@ -105,19 +105,19 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   };
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    null
+    null,
   );
   const [query, setQuery] = useState<string>(
     isSeekDB || isOceanBaseCloud
       ? "-- Select a table on the left to view data, or enter a SQL query"
-      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`"
+      : "SELECT * FROM `COLLATION_CHARACTER_SET_APPLICABILITY`",
   );
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(["db", "collections"])
+    new Set(["db", "collections"]),
   );
   const [, setRowCount] = useState(0);
   const [executionTime, setExecutionTime] = useState<string>("-");
@@ -128,9 +128,10 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [embeddingType, setEmbeddingType] = useState<EmbeddingType>("builtin");
   const [vectorSearchLoading, setVectorSearchLoading] = useState(false);
   const [collectionModelName, setCollectionModelName] = useState<string | null>(
-    null
+    null,
   );
   const [searchModelName, setSearchModelName] = useState<string | null>(null);
+  const [modelWarning, setModelWarning] = useState<string | null>(null);
 
   // 保存的查询相关状态
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
@@ -148,7 +149,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   >(null);
   const [editingCollectionNewName, setEditingCollectionNewName] = useState("");
   const [collectionToDelete, setCollectionToDelete] = useState<string | null>(
-    null
+    null,
   );
   const [collectionOperationLoading, setCollectionOperationLoading] =
     useState(false);
@@ -171,7 +172,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     any
   > | null>(null);
   const [editRowData, setEditRowData] = useState<Record<string, any> | null>(
-    null
+    null,
   );
   const [documentOperationLoading, setDocumentOperationLoading] =
     useState(false);
@@ -210,7 +211,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
         console.log(
           "[CollectionBrowser] Received message:",
           message.type,
-          message
+          message,
         );
 
         switch (message.type) {
@@ -231,7 +232,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
           case "collectionsList":
             console.log(
               "[CollectionBrowser] Received collections:",
-              message.data.collections
+              message.data.collections,
             );
             setCollections(message.data.collections || []);
             setLoading(false);
@@ -250,6 +251,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setExecutionTime(message.data?.executionTime || "-");
             setCollectionModelName(message.data?.collectionModelName || null);
             setSearchModelName(message.data?.searchModelName || null);
+            setModelWarning(message.data?.modelWarning || null);
             break;
           case "vectorSearchError":
             setError(message.data?.error || "Vector search failed");
@@ -259,7 +261,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 数据库切换时更新 connectionInfo
             console.log(
               "[CollectionBrowser] Connection info updated:",
-              message.data
+              message.data,
             );
             setConnectionInfo(message.data);
             // 清空当前选中的 collection
@@ -270,7 +272,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 收到已保存的查询列表
             console.log(
               "[CollectionBrowser] Saved queries:",
-              message.data.queries
+              message.data.queries,
             );
             setSavedQueries(message.data.queries || []);
             break;
@@ -300,7 +302,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 集合创建成功
             console.log(
               "[CollectionBrowser] Collection created:",
-              message.data
+              message.data,
             );
             setShowCreateCollectionDialog(false);
             setNewCollectionName("");
@@ -308,7 +310,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setError(null);
             // 显示成功消息
             setSuccessMessage(
-              `Collection "${message.data?.name || ""}" created successfully`
+              `Collection "${message.data?.name || ""}" created successfully`,
             );
             setTimeout(() => setSuccessMessage(null), 3000);
             // 刷新集合列表
@@ -318,14 +320,14 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 集合删除成功
             console.log(
               "[CollectionBrowser] Collection deleted:",
-              message.data
+              message.data,
             );
             setCollectionToDelete(null);
             setCollectionOperationLoading(false);
             setError(null);
             // 显示成功消息
             setSuccessMessage(
-              `Collection "${message.data?.name || ""}" deleted successfully`
+              `Collection "${message.data?.name || ""}" deleted successfully`,
             );
             setTimeout(() => setSuccessMessage(null), 3000);
             // 如果删除的是当前选中的集合，清空选择
@@ -340,7 +342,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 集合重命名成功
             console.log(
               "[CollectionBrowser] Collection renamed:",
-              message.data
+              message.data,
             );
             setEditingCollectionName(null);
             setEditingCollectionNewName("");
@@ -350,7 +352,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setSuccessMessage(
               `Collection renamed to "${
                 message.data?.newName || ""
-              }" successfully`
+              }" successfully`,
             );
             setTimeout(() => setSuccessMessage(null), 3000);
             // 如果重命名的是当前选中的集合，更新选择
@@ -367,38 +369,32 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 集合操作失败
             console.error(
               "[CollectionBrowser] Collection operation error:",
-              message.data?.error
+              message.data?.error,
             );
             setError(message.data?.error || "Collection operation failed");
             setCollectionOperationLoading(false);
             break;
           case "tableCreated":
             // 表创建成功（云数据库）
-            console.log(
-              "[CollectionBrowser] Table created:",
-              message.data
-            );
+            console.log("[CollectionBrowser] Table created:", message.data);
             setShowCreateCollectionDialog(false);
             setNewCollectionName("");
             setCollectionOperationLoading(false);
             setError(null);
             setSuccessMessage(
-              `Table "${message.data?.name || ""}" created successfully`
+              `Table "${message.data?.name || ""}" created successfully`,
             );
             setTimeout(() => setSuccessMessage(null), 3000);
             vscode.postMessage({ type: "refreshCollections" });
             break;
           case "tableDeleted":
             // 表删除成功（云数据库）
-            console.log(
-              "[CollectionBrowser] Table deleted:",
-              message.data
-            );
+            console.log("[CollectionBrowser] Table deleted:", message.data);
             setCollectionToDelete(null);
             setCollectionOperationLoading(false);
             setError(null);
             setSuccessMessage(
-              `Table "${message.data?.name || ""}" deleted successfully`
+              `Table "${message.data?.name || ""}" deleted successfully`,
             );
             setTimeout(() => setSuccessMessage(null), 3000);
             if (selectedCollection === message.data?.name) {
@@ -411,7 +407,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 表操作失败（云数据库）
             console.error(
               "[CollectionBrowser] Table operation error:",
-              message.data?.error
+              message.data?.error,
             );
             setError(message.data?.error || "Table operation failed");
             setCollectionOperationLoading(false);
@@ -455,7 +451,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 文档操作失败
             console.error(
               "[CollectionBrowser] Document operation error:",
-              message.data?.error
+              message.data?.error,
             );
             setError(message.data?.error || "Document operation failed");
             setDocumentOperationLoading(false);
@@ -534,7 +530,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             // 行操作失败（云数据库）
             console.error(
               "[CollectionBrowser] Row operation error:",
-              message.data?.error
+              message.data?.error,
             );
             setError(message.data?.error || "Row operation failed");
             setDocumentOperationLoading(false);
@@ -586,8 +582,8 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
         setLeftSidebarWidth(
           Math.max(
             LEFT_SIDEBAR_MIN_WIDTH,
-            Math.min(LEFT_SIDEBAR_MAX_WIDTH, newWidth)
-          )
+            Math.min(LEFT_SIDEBAR_MAX_WIDTH, newWidth),
+          ),
         );
       }
       if (isDraggingRight && containerRef.current) {
@@ -596,8 +592,8 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
         setRightPanelWidth(
           Math.max(
             RIGHT_PANEL_MIN_WIDTH,
-            Math.min(RIGHT_PANEL_MAX_WIDTH, newWidth)
-          )
+            Math.min(RIGHT_PANEL_MAX_WIDTH, newWidth),
+          ),
         );
       }
     };
@@ -644,7 +640,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     if (isSeekDB || isOceanBaseCloud) {
       // seekdb or oceanbase-cloud connection: actively request collections/tables list
       console.log(
-        `[CollectionBrowser] isSeekDB=${isSeekDB}, isOceanBaseCloud=${isOceanBaseCloud}, requesting collections/tables...`
+        `[CollectionBrowser] isSeekDB=${isSeekDB}, isOceanBaseCloud=${isOceanBaseCloud}, requesting collections/tables...`,
       );
       setLoading(true);
       // Delay to ensure event listener is registered
@@ -655,7 +651,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     } else {
       // Non-seekdb connection: execute initial query
       console.log(
-        "[CollectionBrowser] isSeekDB=false, executing initial query"
+        "[CollectionBrowser] isSeekDB=false, executing initial query",
       );
       setTimeout(() => {
         handleExecuteQuery();
@@ -686,6 +682,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     // 重置模型信息
     setCollectionModelName(null);
     setSearchModelName(null);
+    setModelWarning(null);
     vscode.postMessage({
       type: "loadCollectionData",
       data: { collectionName },
@@ -752,7 +749,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 开始编辑查询名称
   const handleStartEditQuery = (
     savedQuery: SavedQuery,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     setEditingQueryId(savedQuery.id);
@@ -762,7 +759,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 确认编辑查询名称
   const handleConfirmEditQuery = (
     savedQuery: SavedQuery,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     const name = editingQueryName.trim();
@@ -802,7 +799,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     }
     setCollectionOperationLoading(true);
     setError(null);
-    
+
     if (isOceanBaseCloud) {
       // 云数据库：创建表
       vscode.postMessage({
@@ -811,10 +808,9 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       });
     } else {
       // SeekDB：自动添加前缀
-      const fullName = `${COLLECTION_PREFIX}${name}`;
       vscode.postMessage({
         type: "createCollection",
-        data: { name: fullName },
+        data: { name },
       });
     }
   };
@@ -828,7 +824,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 开始重命名集合
   const handleStartRenameCollection = (
     collectionName: string,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     setEditingCollectionName(collectionName);
@@ -842,7 +838,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 确认重命名集合
   const handleConfirmRenameCollection = (
     oldName: string,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     const inputName = editingCollectionNewName.trim();
@@ -876,7 +872,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 删除集合（显示确认对话框）
   const handleShowDeleteCollection = (
     collectionName: string,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     setCollectionToDelete(collectionName);
@@ -887,7 +883,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     if (!collectionToDelete) return;
     setCollectionOperationLoading(true);
     setError(null);
-    
+
     if (isOceanBaseCloud) {
       // 云数据库：删除表
       vscode.postMessage({
@@ -912,7 +908,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const handleRowContextMenu = (
     event: React.MouseEvent,
     rowIndex: number,
-    rowData: Record<string, any>
+    rowData: Record<string, any>,
   ) => {
     event.preventDefault();
     setSelectedRowIndex(rowIndex);
@@ -964,7 +960,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     try {
       console.log(
         "[CollectionBrowser] handleShowDeleteDocument:",
-        contextMenu.rowData
+        contextMenu.rowData,
       );
       if (contextMenu.rowData) {
         setCurrentRowData({ ...contextMenu.rowData });
@@ -974,10 +970,10 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     } catch (err) {
       console.error(
         "[CollectionBrowser] Error in handleShowDeleteDocument:",
-        err
+        err,
       );
       setError(
-        err instanceof Error ? err.message : "Failed to show delete dialog"
+        err instanceof Error ? err.message : "Failed to show delete dialog",
       );
     }
   };
@@ -988,7 +984,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       if (!currentRowData || !selectedCollection) {
         console.warn(
           "[CollectionBrowser] handleConfirmDeleteDocument: missing data",
-          { currentRowData, selectedCollection }
+          { currentRowData, selectedCollection },
         );
         return;
       }
@@ -1030,11 +1026,13 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     } catch (err) {
       console.error(
         "[CollectionBrowser] Error in handleConfirmDeleteDocument:",
-        err
+        err,
       );
       setDocumentOperationLoading(false);
       setError(
-        err instanceof Error ? err.message : `Failed to delete ${terminology.document}`
+        err instanceof Error
+          ? err.message
+          : `Failed to delete ${terminology.document}`,
       );
     }
   };
@@ -1123,7 +1121,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       setError(`Please select a ${terminology.collection} first`);
       return;
     }
-    
+
     if (isOceanBaseCloud) {
       // 云数据库：根据表结构初始化空字段
       const initialData: Record<string, string> = {};
@@ -1338,7 +1336,7 @@ for i, doc in enumerate(results['documents'][0]):
       if (!searchQuery) return true;
       const searchLower = searchQuery.toLowerCase();
       return Object.values(row).some((value) =>
-        String(value).toLowerCase().includes(searchLower)
+        String(value).toLowerCase().includes(searchLower),
       );
     }) || [];
 
@@ -1466,7 +1464,7 @@ for i, doc in enumerate(results['documents'][0]):
                                   if (e.key === "Enter")
                                     handleConfirmEditQuery(
                                       savedQuery,
-                                      e as any
+                                      e as any,
                                     );
                                   if (e.key === "Escape")
                                     handleCancelEditQuery(e as any);
@@ -1542,7 +1540,9 @@ for i, doc in enumerate(results['documents'][0]):
                   <List size={14} className="item-icon" />
                   <span className="item-name">{terminology.collections}</span>
                   <span className="tree-group-count">
-                    {(isSeekDB || isOceanBaseCloud) && loading && collections.length === 0
+                    {(isSeekDB || isOceanBaseCloud) &&
+                    loading &&
+                    collections.length === 0
                       ? "(Loading...)"
                       : `(${collections.length})`}
                   </span>
@@ -1565,7 +1565,9 @@ for i, doc in enumerate(results['documents'][0]):
                 {/* Collections/Tables list */}
                 {expandedNodes.has("collections") && (
                   <div>
-                    {(isSeekDB || isOceanBaseCloud) && loading && collections.length === 0 ? (
+                    {(isSeekDB || isOceanBaseCloud) &&
+                    loading &&
+                    collections.length === 0 ? (
                       <div className="loading" style={{ padding: "16px 28px" }}>
                         <div className="loading-spinner"></div>
                         Loading {terminology.collections}...
@@ -1598,7 +1600,8 @@ for i, doc in enumerate(results['documents'][0]):
                             <ChevronRight size={12} />
                           </span>
                           <File size={14} className="item-icon" />
-                          {editingCollectionName === collection.name && isSeekDB ? (
+                          {editingCollectionName === collection.name &&
+                          isSeekDB ? (
                             <div
                               className="collection-edit-container"
                               onClick={(e) => e.stopPropagation()}
@@ -1617,7 +1620,7 @@ for i, doc in enumerate(results['documents'][0]):
                                   if (e.key === "Enter")
                                     handleConfirmRenameCollection(
                                       collection.name,
-                                      e as any
+                                      e as any,
                                     );
                                   if (e.key === "Escape")
                                     handleCancelRenameCollection(e as any);
@@ -1630,7 +1633,7 @@ for i, doc in enumerate(results['documents'][0]):
                                 onClick={(e) =>
                                   handleConfirmRenameCollection(
                                     collection.name,
-                                    e
+                                    e,
                                   )
                                 }
                                 title="Save"
@@ -1660,7 +1663,7 @@ for i, doc in enumerate(results['documents'][0]):
                                       onClick={(e) =>
                                         handleStartRenameCollection(
                                           collection.name,
-                                          e
+                                          e,
                                         )
                                       }
                                       title="Rename"
@@ -1673,7 +1676,7 @@ for i, doc in enumerate(results['documents'][0]):
                                     onClick={(e) =>
                                       handleShowDeleteCollection(
                                         collection.name,
-                                        e
+                                        e,
                                       )
                                     }
                                     title={`Delete ${terminology.collection}`}
@@ -1916,6 +1919,25 @@ for i, doc in enumerate(results['documents'][0]):
                 </div>
                 {(collectionModelName || searchModelName) && (
                   <div className="vector-search-model-info">
+                    {modelWarning && (
+                      <div
+                        className="model-warning"
+                        style={{
+                          backgroundColor:
+                            "var(--vscode-inputValidation-warningBackground)",
+                          border:
+                            "1px solid var(--vscode-inputValidation-warningBorder)",
+                          color: "var(--vscode-inputValidation-warningForeground)",
+                          padding: "8px 12px",
+                          borderRadius: "4px",
+                          marginBottom: "8px",
+                          fontSize: "12px",
+                          lineHeight: "1.4",
+                        }}
+                      >
+                        {modelWarning}
+                      </div>
+                    )}
                     <div className="model-info-row">
                       <span className="model-label">Collection Model:</span>
                       <span className="model-value">
@@ -2259,7 +2281,9 @@ for i, doc in enumerate(results['documents'][0]):
                   <div className="document-field">
                     <label className="document-field-label">
                       metadata
-                      <span className="document-field-type">JSON (optional)</span>
+                      <span className="document-field-type">
+                        JSON (optional)
+                      </span>
                     </label>
                     <textarea
                       className="document-field-input"
@@ -2420,7 +2444,9 @@ for i, doc in enumerate(results['documents'][0]):
                   <div className="document-field">
                     <label className="document-field-label">
                       metadata
-                      <span className="document-field-type">JSON (optional)</span>
+                      <span className="document-field-type">
+                        JSON (optional)
+                      </span>
                     </label>
                     <textarea
                       className="document-field-input"

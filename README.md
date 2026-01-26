@@ -41,7 +41,9 @@
 - **Semantic queries**: search with natural language, not just keywords.
 - **Cosine similarity**: accurate matching powered by vector embeddings.
 - **Model flexibility**:
-  - **Built‑in**: local, zero‑config (`@huggingface/transformers`).
+  - **Built‑in**: local, zero‑config (`Xenova/all-MiniLM-L6-v2` via `@huggingface/transformers`)
+  - **Auto-cached**: model downloads once (~87MB), then runs locally without network
+  - **Model info display**: shows both Collection Model and Search Model with mismatch warnings
 - **On‑the‑fly model switching** per search.
 - **Relevance ranking**: results auto‑sorted by similarity score.
 
