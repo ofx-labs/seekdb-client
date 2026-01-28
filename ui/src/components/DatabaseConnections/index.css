@@ -376,9 +376,7 @@
 
 .db-database-item:hover {
   background: var(--vscode-list-hoverBackground, #2a2a2a);
-}
-
-.db-database-item.selected {
+}.db-database-item.selected {
   background: var(--vscode-list-activeSelectionBackground, #094771);
   color: var(--vscode-list-activeSelectionForeground, #fff);
 }
@@ -402,9 +400,7 @@
 
 .db-database-item:hover .db-action-btn {
   opacity: 1;
-}
-
-/* 空数据库状态 */
+}/* 空数据库状态 */
 .db-empty-databases {
   text-align: center;
   padding: 16px;

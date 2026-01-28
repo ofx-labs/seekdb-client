@@ -1,5 +1,28 @@
 ## Changelog
 
+> 📖 **语言 / Language**: [中文](./CHANGELOG.zh-CN.md) | [English](./CHANGELOG.en.md)
+
+### `v0.1.0` — 2025‑01‑26
+
+#### ✨ New / 新功能
+
+- **Version Update Notifications / 版本更新通知**
+  - Automatically displays changelog after plugin updates / 插件更新后自动展示更新日志
+  - Beautiful WebView interface showing version changes / 美观的 WebView 界面展示版本变化
+  - Support for viewing complete CHANGELOG documentation / 支持查看完整 CHANGELOG 文档
+  - Automatic version change detection / 自动检测版本变更并提示用户
+  - Multi-language support (Chinese and English) / 多语言支持（中文和英文）
+
+#### 🐛 Fixes / 问题修复
+
+- _No fixes yet / 暂无修复_.
+
+#### 📝 Improvements / 功能改进
+
+- _No improvements yet / 暂无改进_.
+
+---
+
 ### `v0.0.2` — 2025‑12‑10
 
 #### ✨ New

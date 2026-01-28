@@ -5,6 +5,7 @@ import { CollectionHoverProvider } from "../providers/CollectionHoverProvider";
 import { CommandManager } from "../commands/CommandManager";
 import { ViewManager } from "../views/ViewManager";
 import { PreflightService } from "../services/preflight/PreflightService";
+import { UpdateNotificationService } from "../services/UpdateNotificationService";
 
 export class ExtensionManager {
   private context: vscode.ExtensionContext;
@@ -22,6 +23,9 @@ export class ExtensionManager {
   // 预检查服务
   private preflightService?: PreflightService;
 
+  // 版本更新通知服务
+  private updateNotificationService?: UpdateNotificationService;
+
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.rootPath = this.getRootPath();
@@ -32,27 +36,54 @@ export class ExtensionManager {
    */
   public async activate(): Promise<void> {
     try {
-      // 1. 初始化预检查服务（不立即运行，等待 webview 请求）
+      // 1. 初始化版本更新通知服务
+      this.initializeUpdateNotificationService();
+
+      // 2. 检查并显示版本更新通知
+      await this.checkForUpdates();
+
+      // 3. 初始化预检查服务（不立即运行，等待 webview 请求）
       this.initializePreflightService();
 
-      // 2. 初始化提供器
+      // 4. 初始化提供器
       this.initializeProviders();
 
-      // 3. 将预检查服务设置到 FfProvider
+      // 5. 将预检查服务设置到 FfProvider
       if (this.ffProvider && this.preflightService) {
         this.ffProvider.setPreflightService(this.preflightService);
       }
 
-      // 4. 初始化管理器
+      // 6. 初始化管理器
       this.initializeManagers();
 
-      // 5. 注册所有组件
+      // 7. 注册所有组件
       await this.registerComponents();
 
-      // 6. 注册预检查相关命令
+      // 8. 注册预检查相关命令
       this.registerPreflightCommands();
+
+      // 9. 注册版本更新相关命令
+      this.registerUpdateCommands();
     } catch (error) {
       vscode.window.showErrorMessage(`seekdb-client 扩展激活失败: ${error}`);
+    }
+  }
+
+  /**
+   * 初始化版本更新通知服务
+   */
+  private initializeUpdateNotificationService(): void {
+    this.updateNotificationService = new UpdateNotificationService(
+      this.context
+    );
+  }
+
+  /**
+   * 检查版本更新
+   */
+  private async checkForUpdates(): Promise<void> {
+    if (this.updateNotificationService) {
+      await this.updateNotificationService.checkAndShowUpdateNotification();
     }
   }
 
@@ -93,6 +124,23 @@ export class ExtensionManager {
           await preflightService.showReportPanel();
         }
       )
+    );
+  }
+
+  /**
+   * 注册版本更新相关命令
+   */
+  private registerUpdateCommands(): void {
+    if (!this.updateNotificationService) {
+      return;
+    }
+
+    const updateService = this.updateNotificationService;
+
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand("seekdb.showUpdateLog", async () => {
+        await updateService.showUpdateLog();
+      })
     );
   }
 

@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/ofx-labs/seekdb-client"
   },
-  "version": "0.0.9",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -21,6 +21,11 @@
     "configuration": {
       "title": "seekdb-client",
       "properties": {
+        "seekdb.updateNotification.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用版本更新通知"
+        },
         "seekdb.database.embedding.huggingFaceMirror": {
           "type": "string",
           "enum": [
@@ -58,6 +63,12 @@
       }
     },
     "commands": [
+      {
+        "command": "seekdb.showUpdateLog",
+        "title": "查看更新日志",
+        "icon": "$(info)",
+        "category": "seekdb"
+      },
       {
         "command": "seekdb.openDatabase",
         "title": "Database Management",
