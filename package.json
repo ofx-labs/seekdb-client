@@ -71,8 +71,8 @@
       },
       {
         "command": "seekdb.openDatabase",
-        "title": "Database Management",
-        "icon": "$(database)",
+        "title": "New Connection",
+        "icon": "$(plus)",
         "category": "seekdb"
       },
       {
@@ -139,19 +139,42 @@
         "title": "View Collections",
         "icon": "$(list-unordered)",
         "category": "seekdb"
+      },
+      {
+        "command": "seekdb.signInCloud",
+        "title": "Sign in to OceanBase Cloud",
+        "icon": "$(sign-in)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.createAppFromTemplate",
+        "title": "Create App from Template",
+        "icon": "$(plus)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.openTemplate",
+        "title": "Open Template",
+        "icon": "$(link-external)",
+        "category": "seekdb"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "seekdb.refreshConnections",
+          "command": "seekdb.openDatabase",
           "when": "view == seekdb.cloudConnections || view == seekdb.localConnections",
           "group": "navigation@1"
         },
         {
-          "command": "seekdb.openDatabase",
+          "command": "seekdb.refreshConnections",
           "when": "view == seekdb.cloudConnections || view == seekdb.localConnections",
           "group": "navigation@2"
+        },
+        {
+          "command": "seekdb.createAppFromTemplate",
+          "when": "view == seekdb.apps",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -188,9 +211,31 @@
           "id": "seekdb.localConnections",
           "name": "SEEKDB (LOCAL)",
           "type": "tree"
+        },
+        {
+          "id": "seekdb.apps",
+          "name": "App",
+          "type": "tree"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "seekdb.cloudConnections",
+        "contents": "Connect to OceanBase Cloud\n\nManage your SeekDB databases directly from your editor.\n\n[Sign in to get started](command:seekdb.signInCloud)\n\nLearn more about SeekDB [here](https://en.oceanbase.com/).",
+        "when": "seekdb.cloudConnectionsEmpty"
+      },
+      {
+        "view": "seekdb.localConnections",
+        "contents": "No local connections\n\nCreate a connection to your local SeekDB instance.\n\n[Create Connection](command:seekdb.openDatabase)",
+        "when": "seekdb.localConnectionsEmpty"
+      },
+      {
+        "view": "seekdb.apps",
+        "contents": "Create a new application\n\nStart building your SeekDB application from a template.\n\n[Create App from Template](command:seekdb.createAppFromTemplate)",
+        "when": "seekdb.appsEmpty"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {

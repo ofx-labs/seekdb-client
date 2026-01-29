@@ -82,9 +82,20 @@ export class DatabaseTreeDataProvider implements vscode.TreeDataProvider<vscode.
           : this.isLocalConnection(conn),
       );
 
-      // 如果没有连接，显示空状态提示
+      // 设置上下文变量，用于控制 welcome 内容的显示
+      const contextKey =
+        this.filter === "cloud"
+          ? "seekdb.cloudConnectionsEmpty"
+          : "seekdb.localConnectionsEmpty";
+      vscode.commands.executeCommand(
+        "setContext",
+        contextKey,
+        filteredConnections.length === 0,
+      );
+
+      // 如果没有连接，返回空数组让 viewsWelcome 显示
       if (filteredConnections.length === 0) {
-        return [this.createEmptyStateItem()];
+        return [];
       }
 
       return filteredConnections.map((conn) => this.createConnectionItem(conn));
@@ -119,23 +130,6 @@ export class DatabaseTreeDataProvider implements vscode.TreeDataProvider<vscode.
     }
 
     return [];
-  }
-
-  /**
-   * 创建空状态提示项
-   */
-  private createEmptyStateItem(): vscode.TreeItem {
-    const item = new vscode.TreeItem(
-      this.filter === "cloud" ? "No cloud connections" : "No local connections",
-      vscode.TreeItemCollapsibleState.None,
-    );
-    item.contextValue = "empty";
-    item.iconPath = new vscode.ThemeIcon("info");
-    item.command = {
-      command: "seekdb.openDatabase",
-      title: "Add Connection",
-    };
-    return item;
   }
 
   /**

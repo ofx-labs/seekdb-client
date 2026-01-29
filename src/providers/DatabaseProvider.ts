@@ -1132,6 +1132,9 @@ export class DatabaseProvider {
         case "deleteRow":
           await this.handleDeleteRow(message.data, panel, connection);
           break;
+        case "getTableStructures":
+          await this.handleGetTableStructures(panel, connection);
+          break;
       }
     } catch (error) {
       // Global error handler for all collection browser messages
@@ -2837,11 +2840,11 @@ export class DatabaseProvider {
 
   /**
    * Handle rename collection
-   * 
+   *
    * WARNING: seekdb SDK 1.0.0 does not provide a renameCollection() API.
    * This implementation uses direct SQL (RENAME TABLE), which may cause
    * inconsistencies with vector indexes and metadata tables.
-   * 
+   *
    * Recommendation: Consider implementing as delete + recreate + migrate data
    * for collections created via SDK, or warn users about potential issues.
    */
@@ -3727,6 +3730,203 @@ export class DatabaseProvider {
       return value ? "1" : "0";
     } else {
       return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+    }
+  }
+
+  /**
+   * Handle get table structures request
+   */
+  private async handleGetTableStructures(
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    try {
+      const mysql = await import("mysql2/promise");
+      let conn: any;
+      let collectionNames: string[] = [];
+      const COLLECTION_PREFIX = "c$v1$";
+
+      if (this.isSeekDBConnection(connection)) {
+        // For SeekDB, use SDK API to get clean collection names
+        try {
+          const client = this.getSeekdbClient(connection.id);
+          if (!client || !client.isConnected()) {
+            // Create client if not exists
+            const clients = await this.createSeekdbClients(connection);
+            this.seekdbClients.set(connection.id, clients);
+            const newClient = clients.client;
+            if (newClient && newClient.isConnected()) {
+              const allCollections = await newClient.listCollections();
+              collectionNames = allCollections.map((col) => col.name);
+            }
+          } else {
+            const allCollections = await client.listCollections();
+            collectionNames = allCollections.map((col) => col.name);
+          }
+        } catch (sdkError) {
+          console.warn(
+            "[DatabaseProvider] Failed to get collections from SDK, falling back to SHOW TABLES",
+            sdkError,
+          );
+        }
+
+        // Create MySQL connection for querying table structures
+        conn = await mysql.createConnection({
+          host: connection.host,
+          port: connection.port,
+          user: `${connection.user}@${connection.tenant || DEFAULT_TENANT}`,
+          password: connection.password,
+          database: connection.database || DEFAULT_DATABASE,
+          connectTimeout: 10000,
+        });
+      } else if (this.isOceanBaseCloudConnection(connection)) {
+        const userString = connection.user;
+        conn = await mysql.createConnection({
+          host: connection.host,
+          port: connection.port,
+          user: userString,
+          password: connection.password,
+          database: connection.database || "test",
+          connectTimeout: 10000,
+        });
+      } else {
+        // For other MySQL connections
+        conn = await mysql.createConnection({
+          host: connection.host,
+          port: connection.port,
+          user: connection.user,
+          password: connection.password,
+          database: connection.database || "information_schema",
+          connectTimeout: 10000,
+        });
+      }
+
+      try {
+        // Get table names
+        let tableNames: string[] = [];
+
+        if (this.isSeekDBConnection(connection) && collectionNames.length > 0) {
+          // Use clean collection names from SDK, but need to add prefix for SQL queries
+          tableNames = collectionNames.map(
+            (name) => `${COLLECTION_PREFIX}${name}`,
+          );
+        } else {
+          // Fallback: Get all tables using SHOW TABLES
+          const [tableRows] = await conn.execute("SHOW TABLES");
+          tableNames = (tableRows as any[]).map(
+            (row: any) => Object.values(row)[0],
+          ) as string[];
+        }
+
+        const tables: any[] = [];
+
+        // Get structure for each table
+        for (let i = 0; i < tableNames.length; i++) {
+          const tableName = tableNames[i];
+          // Use clean name for SeekDB collections (without prefix)
+          const displayName =
+            this.isSeekDBConnection(connection) && collectionNames.length > 0
+              ? collectionNames[i]
+              : tableName.startsWith(COLLECTION_PREFIX)
+                ? tableName.slice(COLLECTION_PREFIX.length)
+                : tableName;
+          // Get column information
+          const [columns] = await conn.execute(`DESCRIBE \`${tableName}\``);
+          const columnData = columns as any[];
+
+          // Get primary keys
+          const [pkRows] = await conn.execute(
+            `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? 
+             AND CONSTRAINT_NAME = 'PRIMARY' 
+             ORDER BY ORDINAL_POSITION`,
+            [
+              connection.database ||
+                (this.isSeekDBConnection(connection)
+                  ? "test"
+                  : "information_schema"),
+              tableName,
+            ],
+          );
+          const primaryKeys = new Set(
+            (pkRows as any[]).map((row: any) => row.COLUMN_NAME),
+          );
+
+          // Get foreign keys
+          const [fkRows] = await conn.execute(
+            `SELECT 
+               COLUMN_NAME, 
+               REFERENCED_TABLE_NAME, 
+               REFERENCED_COLUMN_NAME 
+             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+             WHERE TABLE_SCHEMA = ? 
+             AND TABLE_NAME = ? 
+             AND REFERENCED_TABLE_NAME IS NOT NULL 
+             ORDER BY ORDINAL_POSITION`,
+            [
+              connection.database ||
+                (this.isSeekDBConnection(connection)
+                  ? "test"
+                  : "information_schema"),
+              tableName,
+            ],
+          );
+          const foreignKeys = new Map<
+            string,
+            { table: string; column: string }
+          >();
+          (fkRows as any[]).forEach((row: any) => {
+            // Remove prefix from referenced table name if it's a SeekDB collection
+            let referencedTableName = row.REFERENCED_TABLE_NAME;
+            if (
+              this.isSeekDBConnection(connection) &&
+              referencedTableName.startsWith(COLLECTION_PREFIX)
+            ) {
+              referencedTableName = referencedTableName.slice(
+                COLLECTION_PREFIX.length,
+              );
+            }
+            foreignKeys.set(row.COLUMN_NAME, {
+              table: referencedTableName,
+              column: row.REFERENCED_COLUMN_NAME,
+            });
+          });
+
+          const tableColumns = columnData.map((col: any) => ({
+            name: col.Field,
+            type: col.Type,
+            nullable: col.Null === "YES",
+            primaryKey: primaryKeys.has(col.Field),
+            foreignKey: foreignKeys.get(col.Field),
+          }));
+
+          tables.push({
+            name: displayName,
+            columns: tableColumns,
+          });
+        }
+
+        panel.webview.postMessage({
+          type: "tableStructures",
+          data: { tables },
+        });
+      } finally {
+        // Close connection if we created it
+        if (conn && typeof conn.end === "function") {
+          await conn.end();
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(
+        "[DatabaseProvider] Error getting table structures:",
+        errorMsg,
+      );
+      this.addWarning("error", `Failed to get table structures: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "tableStructuresError",
+        data: { error: errorMsg },
+      });
     }
   }
 }

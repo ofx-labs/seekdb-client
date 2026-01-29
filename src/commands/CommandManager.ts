@@ -10,7 +10,7 @@ export class CommandManager {
   constructor(
     context: vscode.ExtensionContext,
     ffProvider: FfProvider,
-    databaseProvider: DatabaseProvider
+    databaseProvider: DatabaseProvider,
   ) {
     this.context = context;
     this.ffProvider = ffProvider;
@@ -30,8 +30,9 @@ export class CommandManager {
   private registerDatabaseCommands(): void {
     this.context.subscriptions.push(
       vscode.commands.registerCommand("seekdb.openDatabase", () => {
-        if (this.ffProvider) {
-          this.ffProvider.openDatabase();
+        if (this.databaseProvider) {
+          // 直接打开创建连接页面
+          this.databaseProvider.openConnectPage();
         } else {
           vscode.window.showErrorMessage("无法打开数据库管理，请重新加载扩展");
         }
@@ -41,25 +42,25 @@ export class CommandManager {
         async (collectionName: string) => {
           if (this.databaseProvider && collectionName) {
             await this.databaseProvider.openCollectionBrowserWithCollection(
-              collectionName
+              collectionName,
             );
           } else {
             vscode.window.showErrorMessage(
-              "无法打开Collection浏览器，请检查参数"
+              "无法打开Collection浏览器，请检查参数",
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand("seekdb.openDocs", async () => {
         try {
           const docsUrl = vscode.Uri.parse(
-            "https://www.oceanbase.ai/docs/seekdb-overview/"
+            "https://www.oceanbase.ai/docs/seekdb-overview/",
           );
           await vscode.env.openExternal(docsUrl);
         } catch (error) {
           console.error("打开文档失败:", error);
           vscode.window.showErrorMessage(
-            "无法打开文档页面，请手动访问 https://www.oceanbase.ai/docs/seekdb-overview/"
+            "无法打开文档页面，请手动访问 https://www.oceanbase.ai/docs/seekdb-overview/",
           );
         }
       }),
@@ -69,27 +70,27 @@ export class CommandManager {
           // 这会打开设置页面并搜索 "seekdb" 相关的配置项
           await vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "seekdb"
+            "seekdb",
           );
         } catch (error) {
           console.error("打开设置失败，尝试备用方法:", error);
           try {
             // 方法2: 直接打开设置页面
             await vscode.commands.executeCommand(
-              "workbench.action.openSettings"
+              "workbench.action.openSettings",
             );
             // 提示用户搜索 seekdb
             vscode.window.showInformationMessage(
-              "请在设置搜索框中输入 'seekdb' 来查看扩展配置"
+              "请在设置搜索框中输入 'seekdb' 来查看扩展配置",
             );
           } catch (fallbackError) {
             console.error("打开设置完全失败:", fallbackError);
             vscode.window.showErrorMessage(
-              "无法打开设置页面，请手动打开设置（Ctrl+,）并搜索 'seekdb'"
+              "无法打开设置页面，请手动打开设置（Ctrl+,）并搜索 'seekdb'",
             );
           }
         }
-      })
+      }),
     );
   }
 }

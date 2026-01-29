@@ -24,8 +24,10 @@ import {
   Code2,
   Copy,
   Settings2,
+  Network,
 } from "lucide-react";
 import "./CollectionBrowserPage.css";
+import TableStructureVisualizer from "./TableStructureVisualizer";
 
 type EmbeddingType = "builtin" | "openai" | "ollama" | "anthropic" | "qwen";
 type CodeSnippetType = "nodejs-seekdb" | "python-pyseekdb";
@@ -65,6 +67,23 @@ interface SavedQuery {
   sql: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/** 表结构接口 */
+interface TableColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey?: boolean;
+  foreignKey?: {
+    table: string;
+    column: string;
+  };
+}
+
+interface Table {
+  name: string;
+  columns: TableColumn[];
 }
 
 declare global {
@@ -189,6 +208,18 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [codeSnippetType, setCodeSnippetType] =
     useState<CodeSnippetType>("nodejs-seekdb");
   const [codeCopied, setCodeCopied] = useState(false);
+
+  // Visualizer 相关状态
+  const [currentView, setCurrentView] = useState<"collection" | "visualizer">(
+    "collection",
+  );
+  const [tables, setTables] = useState<Table[]>([]);
+  const [visualizerLoading, setVisualizerLoading] = useState(false);
+  const [selectedVisualizerCollection, setSelectedVisualizerCollection] =
+    useState<string | null>(null);
+  const [savedTableStructures, setSavedTableStructures] = useState<
+    { name: string; tables: Table[] }[]
+  >([]);
 
   // 侧边栏宽度拖动相关状态
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
@@ -364,6 +395,25 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             }
             // 刷新集合列表
             vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "tableStructures":
+            // 收到表结构数据
+            console.log(
+              "[CollectionBrowser] Received table structures:",
+              message.data.tables,
+            );
+            setTables(message.data.tables || []);
+            setVisualizerLoading(false);
+            setError(null);
+            break;
+          case "tableStructuresError":
+            // 获取表结构失败
+            console.error(
+              "[CollectionBrowser] Table structures error:",
+              message.data?.error,
+            );
+            setError(message.data?.error || "Failed to load table structures");
+            setVisualizerLoading(false);
             break;
           case "collectionError":
             // 集合操作失败
@@ -674,6 +724,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   };
 
   const handleCollectionClick = (collectionName: string) => {
+    setCurrentView("collection");
     setSelectedCollection(collectionName);
     const newQuery = `SELECT * FROM \`${collectionName}\``;
     setQuery(newQuery);
@@ -687,6 +738,17 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       type: "loadCollectionData",
       data: { collectionName },
     });
+  };
+
+  const handleVisualizerClick = () => {
+    setCurrentView("visualizer");
+    setSelectedCollection(null);
+    setQueryResult(null);
+    setSelectedVisualizerCollection(null);
+    setVisualizerLoading(true);
+    setError(null);
+    // 请求表结构数据
+    vscode.postMessage({ type: "getTableStructures" });
   };
 
   // 向量相似度搜索
@@ -1524,6 +1586,21 @@ for i, doc in enumerate(results['documents'][0]):
                   </div>
                 )}
 
+                {/* Visualizer node - same level as collections */}
+                <div
+                  className={`tree-item level-1 ${
+                    currentView === "visualizer" ? "selected" : ""
+                  }`}
+                  onClick={handleVisualizerClick}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="expand-icon" style={{ width: "16px" }}>
+                    {/* No expand icon - visualizer has no children */}
+                  </span>
+                  <Network size={14} className="item-icon" />
+                  <span className="item-name">visualizer</span>
+                </div>
+
                 {/* Collections/Tables node */}
                 <div
                   className="tree-item level-1"
@@ -1866,8 +1943,8 @@ for i, doc in enumerate(results['documents'][0]):
             )}
           </div>
 
-          {/* Vector Similarity Search - Only for seekdb */}
-          {isSeekDB && (
+          {/* Vector Similarity Search - Only for seekdb, hide in visualizer view */}
+          {isSeekDB && currentView !== "visualizer" && (
             <div className="vector-search-section">
               <div className="vector-search-header">
                 <Sparkles size={16} />
@@ -1927,7 +2004,8 @@ for i, doc in enumerate(results['documents'][0]):
                             "var(--vscode-inputValidation-warningBackground)",
                           border:
                             "1px solid var(--vscode-inputValidation-warningBorder)",
-                          color: "var(--vscode-inputValidation-warningForeground)",
+                          color:
+                            "var(--vscode-inputValidation-warningForeground)",
                           padding: "8px 12px",
                           borderRadius: "4px",
                           marginBottom: "8px",
@@ -1957,41 +2035,13 @@ for i, doc in enumerate(results['documents'][0]):
           )}
 
           {/* Results area */}
-          <div className="result-area">
-            <div className="result-header">
-              <div className="search-box">
-                <Search size={14} />
-                <input
-                  type="text"
-                  placeholder="Search results"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="actions">
-                <button
-                  title="Add Document"
-                  onClick={handleShowAddDocument}
-                  disabled={!selectedCollection || loading}
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  title="Refresh"
-                  onClick={handleRefreshData}
-                  disabled={!selectedCollection || loading}
-                >
-                  <RefreshCw size={14} className={loading ? "spin" : ""} />
-                </button>
-              </div>
-            </div>
-
-            <div className="table-container">
-              {loading ? (
+          {currentView === "visualizer" ? (
+            <div className="result-area visualizer-area">
+              {visualizerLoading ? (
                 <div className="empty-state">
                   <div className="loading">
                     <div className="loading-spinner"></div>
-                    Loading...
+                    Loading table structures...
                   </div>
                 </div>
               ) : error ? (
@@ -2001,52 +2051,132 @@ for i, doc in enumerate(results['documents'][0]):
                     {error}
                   </p>
                 </div>
-              ) : !queryResult || !queryResult.columns || !queryResult.rows ? (
-                <div className="empty-state">
-                  <BarChart3 size={48} className="icon" />
-                  <p>Execute a query or select a collection to view data</p>
-                </div>
               ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th className="row-number">#</th>
-                      {queryResult.columns.map((col) => (
-                        <th key={col.name}>
-                          <div className="column-info">
-                            <span className="column-name">* {col.name}</span>
-                            <span className="column-type">{col.type}</span>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.map((row, index) => (
-                      <tr
-                        key={index}
-                        className={selectedRowIndex === index ? "selected" : ""}
-                        onClick={() => handleRowClick(index)}
-                        onContextMenu={(e) =>
-                          handleRowContextMenu(e, index, row)
-                        }
-                      >
-                        <td className="row-number">{index + 1}</td>
-                        {queryResult.columns.map((col) => {
-                          const { display, title } = formatCell(row[col.name]);
-                          return (
-                            <td key={col.name} title={title}>
-                              {display}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <TableStructureVisualizer
+                  tables={tables}
+                  connectionInfo={connectionInfo}
+                  collections={collections}
+                  selectedCollection={selectedVisualizerCollection}
+                  onCollectionChange={setSelectedVisualizerCollection}
+                  savedStructures={savedTableStructures}
+                  onSaveStructure={(name: string) => {
+                    setSavedTableStructures((prev) => [
+                      ...prev,
+                      { name, tables },
+                    ]);
+                  }}
+                  onApplyStructure={(structure: {
+                    name: string;
+                    tables: Table[];
+                  }) => {
+                    setTables(structure.tables);
+                  }}
+                  onDeleteStructure={(name: string) => {
+                    setSavedTableStructures((prev) =>
+                      prev.filter((s) => s.name !== name),
+                    );
+                  }}
+                />
               )}
             </div>
-          </div>
+          ) : (
+            <div className="result-area">
+              <div className="result-header">
+                <div className="search-box">
+                  <Search size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search results"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="actions">
+                  <button
+                    title="Add Document"
+                    onClick={handleShowAddDocument}
+                    disabled={!selectedCollection || loading}
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    title="Refresh"
+                    onClick={handleRefreshData}
+                    disabled={!selectedCollection || loading}
+                  >
+                    <RefreshCw size={14} className={loading ? "spin" : ""} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-container">
+                {loading ? (
+                  <div className="empty-state">
+                    <div className="loading">
+                      <div className="loading-spinner"></div>
+                      Loading...
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="empty-state">
+                    <XCircle size={48} className="icon" />
+                    <p style={{ color: "var(--danger-color, #dc3545)" }}>
+                      {error}
+                    </p>
+                  </div>
+                ) : !queryResult ||
+                  !queryResult.columns ||
+                  !queryResult.rows ? (
+                  <div className="empty-state">
+                    <BarChart3 size={48} className="icon" />
+                    <p>Execute a query or select a collection to view data</p>
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="row-number">#</th>
+                        {queryResult.columns.map((col) => (
+                          <th key={col.name}>
+                            <div className="column-info">
+                              <span className="column-name">* {col.name}</span>
+                              <span className="column-type">{col.type}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map((row, index) => (
+                        <tr
+                          key={index}
+                          className={
+                            selectedRowIndex === index ? "selected" : ""
+                          }
+                          onClick={() => handleRowClick(index)}
+                          onContextMenu={(e) =>
+                            handleRowContextMenu(e, index, row)
+                          }
+                        >
+                          <td className="row-number">{index + 1}</td>
+                          {queryResult.columns.map((col) => {
+                            const { display, title } = formatCell(
+                              row[col.name],
+                            );
+                            return (
+                              <td key={col.name} title={title}>
+                                {display}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Status bar */}
           <div className="status-bar">
