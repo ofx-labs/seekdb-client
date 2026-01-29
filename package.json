@@ -76,11 +76,6 @@
         "category": "seekdb"
       },
       {
-        "command": "seekdb.openCollectionBrowser",
-        "title": "Open Collection Browser",
-        "category": "seekdb"
-      },
-      {
         "command": "seekdb.openDocs",
         "title": "Open Documentation",
         "icon": "$(book)",
@@ -103,33 +98,96 @@
         "title": "查看环境检查报告",
         "icon": "$(output)",
         "category": "seekdb"
+      },
+      {
+        "command": "seekdb.selectDatabase",
+        "title": "Select Database",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.connectDatabase",
+        "title": "Connect",
+        "icon": "$(play)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.disconnectDatabase",
+        "title": "Disconnect",
+        "icon": "$(stop)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.deleteConnection",
+        "title": "Delete Connection",
+        "icon": "$(trash)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.openCollectionBrowser",
+        "title": "Open Collection Browser",
+        "icon": "$(list-unordered)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.refreshConnections",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.openConnectionCollections",
+        "title": "View Collections",
+        "icon": "$(list-unordered)",
+        "category": "seekdb"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "seekdb.refreshConnections",
+          "when": "view == seekdb.cloudConnections || view == seekdb.localConnections",
+          "group": "navigation@1"
+        },
+        {
           "command": "seekdb.openDatabase",
-          "when": "view == seekdb.webviewProvider",
-          "group": "navigation@3.5"
+          "when": "view == seekdb.cloudConnections || view == seekdb.localConnections",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "seekdb.connectDatabase",
+          "when": "(view == seekdb.cloudConnections || view == seekdb.localConnections) && viewItem == connection-disconnected",
+          "group": "inline@1"
         },
         {
-          "command": "seekdb.openDocs",
-          "when": "view == seekdb.webviewProvider",
-          "group": "navigation@3.55"
+          "command": "seekdb.disconnectDatabase",
+          "when": "(view == seekdb.cloudConnections || view == seekdb.localConnections) && viewItem == connection-connected",
+          "group": "inline@1"
         },
         {
-          "command": "seekdb.openSettings",
-          "when": "view == seekdb.webviewProvider",
-          "group": "navigation@3.6"
+          "command": "seekdb.openConnectionCollections",
+          "when": "(view == seekdb.cloudConnections || view == seekdb.localConnections) && viewItem == connection-connected",
+          "group": "inline@2"
+        },
+        {
+          "command": "seekdb.deleteConnection",
+          "when": "(view == seekdb.cloudConnections || view == seekdb.localConnections) && (viewItem == connection-connected || viewItem == connection-disconnected)",
+          "group": "inline@3"
         }
       ]
     },
     "views": {
       "seekdb": [
         {
-          "id": "seekdb.webviewProvider",
-          "name": "seekdb",
-          "type": "webview"
+          "id": "seekdb.cloudConnections",
+          "name": "SEEKDB (CLOUD)",
+          "type": "tree"
+        },
+        {
+          "id": "seekdb.localConnections",
+          "name": "SEEKDB (LOCAL)",
+          "type": "tree"
         }
       ]
     },

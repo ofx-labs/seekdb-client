@@ -208,7 +208,7 @@ function DatabaseConnections() {
   // 切换连接展开状态（显示数据库列表）
   const toggleConnectionExpand = (
     connectionId: string,
-    connection: DatabaseConnection
+    connection: DatabaseConnection,
   ) => {
     const isExpanding = !expandedConnections[connectionId];
     setExpandedConnections((prev) => ({
@@ -296,7 +296,7 @@ function DatabaseConnections() {
   // 刷新数据库列表
   const handleRefreshDatabases = (
     connectionId: string,
-    e: React.MouseEvent
+    e: React.MouseEvent,
   ) => {
     e.stopPropagation();
     loadServerDatabases(connectionId);
@@ -308,14 +308,25 @@ function DatabaseConnections() {
     vscode.postMessage({ type: "clearWarnings" });
   };
 
-  // 按连接状态分组
-  const connectedList = connections.filter((c) => c.connected);
-  const disconnectedList = connections.filter((c) => !c.connected);
+  // 判断连接是本地还是云端
+  const isLocalConnection = (connection: DatabaseConnection): boolean => {
+    // 如果是 oceanbase-cloud 类型，肯定是云端
+    if (connection.type === "oceanbase-cloud") {
+      return false;
+    }
+    // 判断 host 是否为本地地址
+    const localHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
+    return localHosts.includes(connection.host.toLowerCase());
+  };
+
+  // 按本地和云端分组
+  const cloudConnections = connections.filter((c) => !isLocalConnection(c));
+  const localConnections = connections.filter((c) => isLocalConnection(c));
 
   // 渲染单个连接项
   const renderConnectionItem = (
     connection: DatabaseConnection,
-    isConnected: boolean
+    isConnected: boolean,
   ) => {
     const isExpanded = expandedConnections[connection.id];
     const databases = serverDatabases[connection.id] || [];
@@ -556,56 +567,58 @@ function DatabaseConnections() {
         </div>
       ) : (
         <div className="db-connections-list">
-          {/* Connected databases */}
-          {connectedList.length > 0 && (
+          {/* CLOUD 分组 */}
+          {cloudConnections.length > 0 && (
             <div className="db-group">
               <div
                 className="db-group-header"
-                onClick={() => toggleGroup("connected")}
+                onClick={() => toggleGroup("cloud")}
               >
                 <span className="db-group-icon">
-                  {expandedGroups["connected"] !== false ? (
+                  {expandedGroups["cloud"] !== false ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
                   )}
                 </span>
-                <span className="db-group-title">
-                  Connected ({connectedList.length})
-                </span>
+                <span className="db-group-title">DATABASE (CLOUD)</span>
               </div>
-              {expandedGroups["connected"] !== false && (
+              {expandedGroups["cloud"] !== false && (
                 <div className="db-group-content">
-                  {connectedList.map((connection) =>
-                    renderConnectionItem(connection, true)
+                  {cloudConnections.map((connection) =>
+                    renderConnectionItem(
+                      connection,
+                      connection.connected || false,
+                    ),
                   )}
                 </div>
               )}
             </div>
           )}
 
-          {/* 未连接的数据库 */}
-          {disconnectedList.length > 0 && (
+          {/* LOCAL 分组 */}
+          {localConnections.length > 0 && (
             <div className="db-group">
               <div
                 className="db-group-header"
-                onClick={() => toggleGroup("disconnected")}
+                onClick={() => toggleGroup("local")}
               >
                 <span className="db-group-icon">
-                  {expandedGroups["disconnected"] !== false ? (
+                  {expandedGroups["local"] !== false ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
                   )}
                 </span>
-                <span className="db-group-title">
-                  Saved ({disconnectedList.length})
-                </span>
+                <span className="db-group-title">DATABASE (LOCAL)</span>
               </div>
-              {expandedGroups["disconnected"] !== false && (
+              {expandedGroups["local"] !== false && (
                 <div className="db-group-content">
-                  {disconnectedList.map((connection) =>
-                    renderConnectionItem(connection, false)
+                  {localConnections.map((connection) =>
+                    renderConnectionItem(
+                      connection,
+                      connection.connected || false,
+                    ),
                   )}
                 </div>
               )}
