@@ -1349,6 +1349,52 @@ export class DatabaseProvider {
   }
 
   /**
+   * Parse CREATE TABLE statement to extract table name
+   * Returns null if not a CREATE TABLE statement
+   */
+  private parseCreateTableStatement(sql: string): string | null {
+    // Remove comments and normalize whitespace
+    const normalizedSql = sql
+      .replace(/--.*$/gm, "") // Remove single-line comments
+      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove multi-line comments
+      .trim();
+
+    // Match CREATE TABLE [IF NOT EXISTS] `table_name` or CREATE TABLE [IF NOT EXISTS] table_name
+    // Handle both backtick-quoted and unquoted table names
+    const createTableRegex =
+      /^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`([^`]+)`|"([^"]+)"|(\w+))/i;
+    const match = normalizedSql.match(createTableRegex);
+    if (match) {
+      // Return the first non-empty capture group (backtick, double quote, or unquoted)
+      return match[1] || match[2] || match[3] || null;
+    }
+    return null;
+  }
+
+  /**
+   * Parse DROP TABLE statement to extract table name
+   * Returns null if not a DROP TABLE statement
+   */
+  private parseDropTableStatement(sql: string): string | null {
+    // Remove comments and normalize whitespace
+    const normalizedSql = sql
+      .replace(/--.*$/gm, "") // Remove single-line comments
+      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove multi-line comments
+      .trim();
+
+    // Match DROP TABLE [IF EXISTS] `table_name` or DROP TABLE [IF EXISTS] table_name
+    // Handle both backtick-quoted and unquoted table names
+    const dropTableRegex =
+      /^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:`([^`]+)`|"([^"]+)"|(\w+))/i;
+    const match = normalizedSql.match(dropTableRegex);
+    if (match) {
+      // Return the first non-empty capture group (backtick, double quote, or unquoted)
+      return match[1] || match[2] || match[3] || null;
+    }
+    return null;
+  }
+
+  /**
    * Execute SQL query
    */
   private async executeQuery(
@@ -1360,6 +1406,190 @@ export class DatabaseProvider {
 
     // If it's SeekDB or OceanBase Cloud type, execute real query
     if (this.isSeekDBConnection(connection)) {
+      // Check if this is a CREATE TABLE statement - if so, use SDK API instead
+      const createTableName = this.parseCreateTableStatement(sql);
+      if (createTableName) {
+        // Use SDK's createCollection method for CREATE TABLE in SeekDB
+        try {
+          // Remove 'c$v1$' prefix if present - SDK adds it automatically
+          const COLLECTION_PREFIX = "c$v1$";
+          const actualCollectionName = createTableName.startsWith(
+            COLLECTION_PREFIX,
+          )
+            ? createTableName.slice(COLLECTION_PREFIX.length)
+            : createTableName;
+
+          // Get SeekDB client
+          let client = this.getSeekdbClient(connection.id);
+          if (!client && connection.connected) {
+            try {
+              const clients = await this.createSeekdbClients(connection);
+              this.seekdbClients.set(connection.id, clients);
+              client = clients.client;
+              this.addWarning(
+                "info",
+                `Reconnected to seekdb: ${connection.name}`,
+              );
+            } catch (reconnectError) {
+              const errMsg =
+                reconnectError instanceof Error
+                  ? reconnectError.message
+                  : String(reconnectError);
+              panel.webview.postMessage({
+                type: "queryError",
+                data: { error: `Failed to reconnect: ${errMsg}` },
+              });
+              return;
+            }
+          }
+
+          if (!client) {
+            panel.webview.postMessage({
+              type: "queryError",
+              data: { error: "SeekDB client not connected" },
+            });
+            return;
+          }
+
+          // Create embedding function adapter from project's embedding service
+          const embeddingFunction = this.createEmbeddingFunctionAdapter();
+          if (!embeddingFunction) {
+            panel.webview.postMessage({
+              type: "queryError",
+              data: {
+                error:
+                  "Embedding service not available. Please check your embedding configuration in settings.",
+              },
+            });
+            return;
+          }
+
+          // Use SDK's createCollection method to properly create a vector-enabled collection
+          await client.createCollection({
+            name: actualCollectionName,
+            embeddingFunction: embeddingFunction,
+            configuration: {
+              dimension: 384, // Default dimension for all-MiniLM-L6-v2 model
+              distance: "cosine" as const,
+            },
+          });
+
+          const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
+          this.addWarning(
+            "info",
+            `Successfully created collection: ${actualCollectionName}`,
+          );
+
+          // Refresh collections list to show the newly created collection
+          panel.webview.postMessage({
+            type: "refreshCollections",
+          });
+
+          panel.webview.postMessage({
+            type: "queryResult",
+            data: {
+              columns: [],
+              rows: [],
+              rowCount: 0,
+              executionTime: `${executionTime}s`,
+            },
+          });
+          return;
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          this.addWarning("error", `Failed to create collection: ${errorMsg}`);
+          panel.webview.postMessage({
+            type: "queryError",
+            data: { error: errorMsg },
+          });
+          return;
+        }
+      }
+
+      // Check if this is a DROP TABLE statement - if so, use SDK API instead
+      const dropTableName = this.parseDropTableStatement(sql);
+      if (dropTableName) {
+        // Use SDK's deleteCollection method for DROP TABLE in SeekDB
+        try {
+          // Remove 'c$v1$' prefix if present - SDK handles it automatically
+          const COLLECTION_PREFIX = "c$v1$";
+          const actualCollectionName = dropTableName.startsWith(
+            COLLECTION_PREFIX,
+          )
+            ? dropTableName.slice(COLLECTION_PREFIX.length)
+            : dropTableName;
+
+          // Get SeekDB client
+          let client = this.getSeekdbClient(connection.id);
+          if (!client && connection.connected) {
+            try {
+              const clients = await this.createSeekdbClients(connection);
+              this.seekdbClients.set(connection.id, clients);
+              client = clients.client;
+              this.addWarning(
+                "info",
+                `Reconnected to seekdb: ${connection.name}`,
+              );
+            } catch (reconnectError) {
+              const errMsg =
+                reconnectError instanceof Error
+                  ? reconnectError.message
+                  : String(reconnectError);
+              panel.webview.postMessage({
+                type: "queryError",
+                data: { error: `Failed to reconnect: ${errMsg}` },
+              });
+              return;
+            }
+          }
+
+          if (!client) {
+            panel.webview.postMessage({
+              type: "queryError",
+              data: { error: "SeekDB client not connected" },
+            });
+            return;
+          }
+
+          // Use SDK's deleteCollection() API
+          // This properly cleans up vector indexes and metadata tables
+          await client.deleteCollection(actualCollectionName);
+
+          const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
+          this.addWarning(
+            "info",
+            `Successfully deleted collection: ${actualCollectionName}`,
+          );
+
+          // Refresh collections list to reflect the deletion
+          panel.webview.postMessage({
+            type: "refreshCollections",
+          });
+
+          panel.webview.postMessage({
+            type: "queryResult",
+            data: {
+              columns: [],
+              rows: [],
+              rowCount: 0,
+              executionTime: `${executionTime}s`,
+            },
+          });
+          return;
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          this.addWarning("error", `Failed to delete collection: ${errorMsg}`);
+          panel.webview.postMessage({
+            type: "queryError",
+            data: { error: errorMsg },
+          });
+          return;
+        }
+      }
+
+      // For non-CREATE/DROP TABLE queries, execute normally
       try {
         const result = await this.executeSeekDBQuery(connection.id, sql);
         const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
