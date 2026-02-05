@@ -669,7 +669,7 @@ body {
   margin-left: auto;
 }
 
-.tree-item.level-1:hover .tree-item-actions {
+.tree-item:hover .tree-item-actions {
   display: flex;
 }
 

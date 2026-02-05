@@ -10,6 +10,7 @@ import {
   DEFAULT_PORT,
   DEFAULT_USER,
   DEFAULT_DATABASE,
+  OBDatabase,
 } from "seekdb";
 import {
   EmbeddingServiceFactory,
@@ -95,6 +96,61 @@ interface SavedQuery {
 /**
  * DatabaseProvider - Manages database connection WebviewPanel
  */
+/**
+ * Collection table prefixes
+ */
+const COLLECTION_TABLE_PREFIXES = ["c$v2$", "c$v1$"];
+
+/**
+ * Strip prefix from collection table name
+ */
+function stripCollectionPrefix(name: string): {
+  cleanName: string;
+  prefix: string | null;
+} {
+  for (const prefix of COLLECTION_TABLE_PREFIXES) {
+    if (name.startsWith(prefix)) {
+      return {
+        cleanName: name.slice(prefix.length),
+        prefix,
+      };
+    }
+  }
+  return { cleanName: name, prefix: null };
+}
+
+/**
+ * Check if table is a collection backing table
+ */
+function isCollectionBackingTable(tableName: string): boolean {
+  return COLLECTION_TABLE_PREFIXES.some((prefix) =>
+    tableName.startsWith(prefix),
+  );
+}
+
+/**
+ * Resolve actual table name from clean collection name
+ */
+function resolveCollectionTableName(
+  cleanName: string,
+  allTables: string[],
+): string {
+  // Try c$v2$ first
+  const v2Name = `c$v2$${cleanName}`;
+  if (allTables.includes(v2Name)) {
+    return v2Name;
+  }
+
+  // Try c$v1$
+  const v1Name = `c$v1$${cleanName}`;
+  if (allTables.includes(v1Name)) {
+    return v1Name;
+  }
+
+  // Fallback to clean name
+  return cleanName;
+}
+
 export class DatabaseProvider {
   private panel: vscode.WebviewPanel | undefined;
   private collectionPanels: Map<string, vscode.WebviewPanel> = new Map();
@@ -740,9 +796,9 @@ export class DatabaseProvider {
 
     try {
       const databases = await adminClient.listDatabases();
-      return databases.map((db: Database) => ({
+      return databases.map((db: Database | OBDatabase) => ({
         name: db.name,
-        tenant: db.tenant,
+        tenant: db instanceof OBDatabase ? db.tenant : null,
         charset: db.charset,
         collation: db.collation,
       }));
@@ -870,7 +926,7 @@ export class DatabaseProvider {
       const db = await adminClient.getDatabase(dbName);
       return {
         name: db.name,
-        tenant: db.tenant,
+        tenant: db instanceof OBDatabase ? db.tenant : null,
         charset: db.charset,
         collation: db.collation,
       };
@@ -1055,6 +1111,9 @@ export class DatabaseProvider {
             panel,
             connection,
           );
+          break;
+        case "loadTableData":
+          await this.loadTableData(message.data.tableName, panel, connection);
           break;
         case "refreshCollections":
           console.log("[DatabaseProvider] Handling refreshCollections");
@@ -1401,13 +1460,39 @@ export class DatabaseProvider {
     sql: string,
     panel: vscode.WebviewPanel,
     connection: DatabaseConnection,
+    context?: { kind: string; cleanName: string; tableName?: string },
   ): Promise<void> {
     const startTime = Date.now();
+
+    let finalSql = sql;
+    if (
+      this.isSeekDBConnection(connection) &&
+      context?.kind === "collection" &&
+      context.cleanName
+    ) {
+      try {
+        const { allTables } = await this.getTables(connection);
+        const allTableNames = allTables.map((t) => t.name);
+        const resolved = resolveCollectionTableName(
+          context.cleanName,
+          allTableNames,
+        );
+        if (resolved !== context.cleanName) {
+          finalSql = sql.replace(
+            new RegExp(`\`${context.cleanName}\``, "g"),
+            `\`${resolved}\``,
+          );
+          console.log(`[DatabaseProvider] Rewrote SQL: ${sql} -> ${finalSql}`);
+        }
+      } catch (e) {
+        console.error("Error resolving table name:", e);
+      }
+    }
 
     // If it's SeekDB or OceanBase Cloud type, execute real query
     if (this.isSeekDBConnection(connection)) {
       // Check if this is a CREATE TABLE statement - if so, use SDK API instead
-      const createTableName = this.parseCreateTableStatement(sql);
+      const createTableName = this.parseCreateTableStatement(finalSql);
       if (createTableName) {
         // Use SDK's createCollection method for CREATE TABLE in SeekDB
         try {
@@ -1508,7 +1593,7 @@ export class DatabaseProvider {
       }
 
       // Check if this is a DROP TABLE statement - if so, use SDK API instead
-      const dropTableName = this.parseDropTableStatement(sql);
+      const dropTableName = this.parseDropTableStatement(finalSql);
       if (dropTableName) {
         // Use SDK's deleteCollection method for DROP TABLE in SeekDB
         try {
@@ -1591,7 +1676,7 @@ export class DatabaseProvider {
 
       // For non-CREATE/DROP TABLE queries, execute normally
       try {
-        const result = await this.executeSeekDBQuery(connection.id, sql);
+        const result = await this.executeSeekDBQuery(connection.id, finalSql);
         const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
 
         panel.webview.postMessage({
@@ -1613,7 +1698,7 @@ export class DatabaseProvider {
       try {
         const result = await this.executeOceanBaseCloudQuery(
           connection.id,
-          sql,
+          finalSql,
         );
         const executionTime = ((Date.now() - startTime) / 1000).toFixed(3);
 
@@ -1887,12 +1972,12 @@ export class DatabaseProvider {
   ): Promise<void> {
     if (this.isSeekDBConnection(connection)) {
       try {
-        // For SeekDB, collection names from listCollections() are clean (without prefix)
-        // But actual table names have 'c$v1$' prefix, so we need to add it back for SQL queries
-        const COLLECTION_PREFIX = "c$v1$";
-        const tableName = collectionName.startsWith(COLLECTION_PREFIX)
-          ? collectionName
-          : `${COLLECTION_PREFIX}${collectionName}`;
+        // For SeekDB, collection names are typically clean, but backing tables may use c$v1$/c$v2$ prefixes.
+        // Resolve to the actual table name that exists in the database.
+        const { cleanName } = stripCollectionPrefix(collectionName);
+        const { allTables } = await this.getTables(connection);
+        const allTableNames = allTables.map((t) => t.name);
+        const tableName = resolveCollectionTableName(cleanName, allTableNames);
 
         // 构建 SELECT 查询
         const sql = `SELECT * FROM \`${tableName}\` LIMIT 1000`;
@@ -1951,6 +2036,52 @@ export class DatabaseProvider {
   }
 
   /**
+   * Load table data (SeekDB plain tables, no collection prefix rewriting)
+   */
+  private async loadTableData(
+    tableName: string,
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (this.isSeekDBConnection(connection)) {
+      try {
+        const sql = `SELECT * FROM \`${tableName}\` LIMIT 1000`;
+        const result = await this.executeSeekDBQuery(connection.id, sql);
+        panel.webview.postMessage({
+          type: "collectionData",
+          data: {
+            collectionName: tableName,
+            ...result,
+          },
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.addWarning("error", `Failed to load table data: ${errorMsg}`);
+        panel.webview.postMessage({
+          type: "queryError",
+          data: { error: errorMsg },
+        });
+      }
+      return;
+    }
+
+    if (this.isOceanBaseCloudConnection(connection)) {
+      // OceanBase Cloud tables are already handled as collections/tables uniformly.
+      await this.loadCollectionData(tableName, panel, connection);
+      return;
+    }
+
+    const mockData = this.getMockCollectionData(tableName);
+    panel.webview.postMessage({
+      type: "collectionData",
+      data: {
+        collectionName: tableName,
+        ...mockData,
+      },
+    });
+  }
+
+  /**
    * Refresh collections list
    */
   private async refreshCollections(
@@ -1963,31 +2094,55 @@ export class DatabaseProvider {
       "isOceanBaseCloud:",
       this.isOceanBaseCloudConnection(connection),
     );
+    console.log("[DatabaseProvider] refreshCollections connection:", {
+      id: connection.id,
+      name: connection.name,
+      type: connection.type,
+      host: connection.host,
+      port: connection.port,
+      user: connection.user,
+      tenant: connection.tenant,
+      database: connection.database || DEFAULT_DATABASE,
+    });
     if (this.isSeekDBConnection(connection)) {
       try {
         console.log(
-          "[DatabaseProvider] Getting SeekDB collections...",
-          `Connection: ${connection.name}, Database: ${connection.database || DEFAULT_DATABASE}`,
+          "[DatabaseProvider] Getting SeekDB collections and tables...",
+          `Connection: ${connection.name}, Database: ${
+            connection.database || DEFAULT_DATABASE
+          }`,
         );
+
+        // 1. Get collections via SDK
+        // Note: SDK automatically handles c$v1$ prefix and returns clean names
         const collections = await this.getSeekDBCollections(connection);
+
+        // 2. Get tables via MySQL SHOW TABLES (filtering out collection backing tables)
+        const { tables } = await this.getTables(connection);
+
         console.log(
-          `[DatabaseProvider] Got ${collections.length} collections:`,
-          collections.map((c) => c.name).join(", ") || "(none)",
+          `[DatabaseProvider] Got ${collections.length} collections and ${tables.length} tables`,
         );
+
         panel.webview.postMessage({
           type: "collectionsList",
-          data: { collections },
+          data: { collections, tables },
         });
-        console.log("[DatabaseProvider] Sent collectionsList message");
+        console.log(
+          "[DatabaseProvider] Sent collectionsList message with collections and tables",
+        );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         console.error(
-          "[DatabaseProvider] Error getting collections:",
+          "[DatabaseProvider] Error getting collections/tables:",
           errorMsg,
           errorStack ? `\nStack: ${errorStack}` : "",
         );
-        this.addWarning("error", `Failed to get collections list: ${errorMsg}`);
+        this.addWarning(
+          "error",
+          `Failed to get collections/tables list: ${errorMsg}`,
+        );
         panel.webview.postMessage({
           type: "collectionsError",
           data: { error: errorMsg },
@@ -2025,6 +2180,41 @@ export class DatabaseProvider {
         type: "collectionsList",
         data: { collections: mockCollections },
       });
+    }
+  }
+
+  /**
+   * Get SeekDB tables list (excluding collections)
+   * allTables: all tables in the database, including collections
+   * tables: tables in the database excluding collections
+   */
+  private async getTables(
+    connection: DatabaseConnection,
+  ): Promise<{ allTables: CollectionInfo[]; tables: CollectionInfo[] }> {
+    const mysql = await import("mysql2/promise");
+    const conn = await mysql.createConnection({
+      host: connection.host,
+      port: connection.port,
+      user: `${connection.user}@${connection.tenant || DEFAULT_TENANT}`,
+      password: connection.password,
+      database: connection.database || DEFAULT_DATABASE,
+    });
+
+    try {
+      const [rows] = await conn.execute("SHOW TABLES");
+      const allTables = (rows as any[]).map((row: any) => {
+        const tableName = Object.values(row)[0] as string;
+        return {
+          name: tableName,
+          type: "table",
+        };
+      });
+      const tables = allTables.filter(
+        (table) => !isCollectionBackingTable(table.name),
+      );
+      return { tables, allTables };
+    } finally {
+      await conn.end();
     }
   }
 
@@ -2103,6 +2293,16 @@ export class DatabaseProvider {
     try {
       // Use standard listCollections API from seekdb-js SDK
       // The SDK automatically handles 'c$v1$' prefix removal internally
+      console.log("[DatabaseProvider] listCollections() start:", {
+        connectionId: connection.id,
+        connectionName: connection.name,
+        host: connection.host,
+        port: connection.port,
+        user: connection.user,
+        tenant: connection.tenant,
+        database: connection.database || DEFAULT_DATABASE,
+        clientConnected: client.isConnected(),
+      });
       const allCollections = await client.listCollections();
 
       console.log(
@@ -2114,22 +2314,17 @@ export class DatabaseProvider {
         console.log(
           `[DatabaseProvider] Collection names from SDK: ${collectionNames.join(", ")}`,
         );
+      } else {
+        console.warn(
+          "[DatabaseProvider] listCollections() returned empty array; connection/database may be wrong or SDK returned no collections.",
+        );
       }
 
       // If SDK returns collections, use them
-      if (allCollections.length > 0) {
-        return allCollections.map((col) => ({
-          name: col.name,
-          type: "collection",
-        }));
-      }
-
-      // If SDK returns empty, fall back to SHOW TABLES for compatibility
-      // This handles cases where tables exist but weren't created via SDK
-      // or when SDK's getCollection() fails for some tables
-      console.log(
-        "[DatabaseProvider] listCollections() returned empty, falling back to SHOW TABLES",
-      );
+      return allCollections.map((col) => ({
+        name: col.name,
+        type: "collection",
+      }));
     } catch (sdkError) {
       const sdkErrorMsg =
         sdkError instanceof Error ? sdkError.message : String(sdkError);
@@ -2139,41 +2334,45 @@ export class DatabaseProvider {
         `[DatabaseProvider] listCollections() failed: ${sdkErrorMsg}`,
         sdkErrorStack ? `\nStack: ${sdkErrorStack}` : "",
       );
-      console.log("[DatabaseProvider] Falling back to SHOW TABLES");
-    }
 
-    // Fallback: Use SHOW TABLES to get all tables (for compatibility)
-    // When falling back, we need to remove 'c$v1$' prefix to match SDK behavior
-    const mysql = await import("mysql2/promise");
-    const conn = await mysql.createConnection({
-      host: connection.host,
-      port: connection.port,
-      user: `${connection.user}@${connection.tenant || DEFAULT_TENANT}`,
-      password: connection.password,
-      database: connection.database || DEFAULT_DATABASE,
-    });
+      // Fallback: Use SHOW TABLES to get potential collections (for compatibility)
+      console.log(
+        "[DatabaseProvider] Falling back to SHOW TABLES for collections",
+      );
 
-    try {
-      const [rows] = await conn.execute("SHOW TABLES");
-      const COLLECTION_PREFIX = "c$v1$";
-      const collections = (rows as any[]).map((row: any) => {
-        const tableName = Object.values(row)[0] as string;
-        // Remove 'c$v1$' prefix if present to match SDK's listCollections() behavior
-        const collectionName = tableName.startsWith(COLLECTION_PREFIX)
-          ? tableName.slice(COLLECTION_PREFIX.length)
-          : tableName;
-        return {
-          name: collectionName,
-          type: "collection",
-        };
+      const mysql = await import("mysql2/promise");
+      const conn = await mysql.createConnection({
+        host: connection.host,
+        port: connection.port,
+        user: `${connection.user}@${connection.tenant || DEFAULT_TENANT}`,
+        password: connection.password,
+        database: connection.database || DEFAULT_DATABASE,
       });
 
-      console.log(
-        `[DatabaseProvider] SHOW TABLES returned ${collections.length} tables (after prefix removal)`,
-      );
-      return collections;
-    } finally {
-      await conn.end();
+      try {
+        const [rows] = await conn.execute("SHOW TABLES");
+        const collections: CollectionInfo[] = [];
+
+        for (const row of rows as any[]) {
+          const tableName = Object.values(row)[0] as string;
+          // Check if it looks like a collection table (starts with c$v1$ or c$v2$)
+          const { cleanName, prefix } = stripCollectionPrefix(tableName);
+
+          if (prefix) {
+            collections.push({
+              name: cleanName,
+              type: "collection",
+            });
+          }
+        }
+
+        console.log(
+          `[DatabaseProvider] SHOW TABLES fallback found ${collections.length} collections`,
+        );
+        return collections;
+      } finally {
+        await conn.end();
+      }
     }
   }
 
