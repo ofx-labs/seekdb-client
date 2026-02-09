@@ -131,14 +131,30 @@ function isCollectionBackingTable(tableName: string): boolean {
 /**
  * Resolve actual table name from clean collection name
  */
-function resolveCollectionTableName(
+async function resolveCollectionTableName(
   cleanName: string,
   allTables: string[],
-): string {
-  // Try c$v2$ first
-  const v2Name = `c$v2$${cleanName}`;
-  if (allTables.includes(v2Name)) {
-    return v2Name;
+  execute: (sql: string) => Promise<any>,
+): Promise<string | null> {
+  try {
+    // Try c$v2$ first, v2 version collection name will be saved in `sdk_collections` table, collection_name field
+    // The name of collection is in form of `c$v2$collection_id`
+    const metas = await execute(
+      `SELECT COUNT(*) as count FROM sdk_collections`,
+    );
+    if (metas?.rows?.[0]?.count > 0) {
+      const selectSql = `SELECT collection_id FROM sdk_collections WHERE collection_name = \'${cleanName}\'`;
+      const result = await execute(selectSql);
+      const [row] = result?.rows || [];
+      if (row) {
+        return `c$v2$${row.collection_id}`;
+      }
+    }
+  } catch (error) {
+    console.error(
+      "[DatabaseProvider] resolve c$v2$ CollectionName error:",
+      error,
+    );
   }
 
   // Try c$v1$
@@ -1098,12 +1114,18 @@ export class DatabaseProvider {
     console.log(
       "[DatabaseProvider] handleCollectionBrowserMessage:",
       message.type,
+      message.data,
     );
 
     try {
       switch (message.type) {
         case "executeQuery":
-          await this.executeQuery(message.data.sql, panel, connection);
+          await this.executeQuery(
+            message.data.sql,
+            panel,
+            connection,
+            message.data.context,
+          );
           break;
         case "loadCollectionData":
           await this.loadCollectionData(
@@ -1473,10 +1495,13 @@ export class DatabaseProvider {
       try {
         const { allTables } = await this.getTables(connection);
         const allTableNames = allTables.map((t) => t.name);
-        const resolved = resolveCollectionTableName(
+        const resolved = await resolveCollectionTableName(
           context.cleanName,
           allTableNames,
+          async (sql: string) =>
+            await this.executeSeekDBQuery(connection.id, sql),
         );
+        console.log("[DatabaseProvider] resolved table name:", resolved);
         if (resolved !== context.cleanName) {
           finalSql = sql.replace(
             new RegExp(`\`${context.cleanName}\``, "g"),
@@ -1977,7 +2002,16 @@ export class DatabaseProvider {
         const { cleanName } = stripCollectionPrefix(collectionName);
         const { allTables } = await this.getTables(connection);
         const allTableNames = allTables.map((t) => t.name);
-        const tableName = resolveCollectionTableName(cleanName, allTableNames);
+        const tableName = await resolveCollectionTableName(
+          cleanName,
+          allTableNames,
+          async (sql: string) =>
+            await this.executeSeekDBQuery(connection.id, sql),
+        );
+        console.log(
+          "[DatabaseProvider] loadCollectionData resolved table name:",
+          tableName,
+        );
 
         // 构建 SELECT 查询
         const sql = `SELECT * FROM \`${tableName}\` LIMIT 1000`;
@@ -2303,7 +2337,9 @@ export class DatabaseProvider {
         database: connection.database || DEFAULT_DATABASE,
         clientConnected: client.isConnected(),
       });
-      const allCollections = await client.listCollections();
+      const allCollections = await client.listCollections({
+        withEmbeddingFunction: false,
+      });
 
       console.log(
         `[DatabaseProvider] listCollections() returned ${allCollections.length} collections`,
@@ -4185,11 +4221,15 @@ export class DatabaseProvider {
             this.seekdbClients.set(connection.id, clients);
             const newClient = clients.client;
             if (newClient && newClient.isConnected()) {
-              const allCollections = await newClient.listCollections();
+              const allCollections = await newClient.listCollections({
+                withEmbeddingFunction: false,
+              });
               collectionNames = allCollections.map((col) => col.name);
             }
           } else {
-            const allCollections = await client.listCollections();
+            const allCollections = await client.listCollections({
+              withEmbeddingFunction: false,
+            });
             collectionNames = allCollections.map((col) => col.name);
           }
         } catch (sdkError) {

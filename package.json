@@ -282,6 +282,6 @@
     "@huggingface/transformers": "^3.8.1",
     "fs-extra": "^11.3.0",
     "mysql2": "^3.15.3",
-    "seekdb": "^1.1.0"
+    "seekdb": "^1.1.1"
   }
 }
