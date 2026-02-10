@@ -7,6 +7,8 @@ import {
   FileText,
   List,
   File,
+  Table as TableIcon,
+  Grid,
   ChevronDown,
   ChevronRight,
   Play,
@@ -23,7 +25,6 @@ import {
   Eye,
   Code2,
   Copy,
-  Settings2,
   Network,
 } from "lucide-react";
 import "./CollectionBrowserPage.css";
@@ -123,9 +124,11 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     Documents: isOceanBaseCloud ? "Rows" : "Documents",
   };
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [tablesList, setTablesList] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null,
   );
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [query, setQuery] = useState<string>(
     isSeekDB || isOceanBaseCloud
       ? "-- Select a table on the left to view data, or enter a SQL query"
@@ -136,7 +139,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(["db", "collections"]),
+    new Set(["db", "collections", "tables"]),
   );
   const [, setRowCount] = useState(0);
   const [executionTime, setExecutionTime] = useState<string>("-");
@@ -264,8 +267,11 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             console.log(
               "[CollectionBrowser] Received collections:",
               message.data.collections,
+              "tables:",
+              message.data.tables,
             );
             setCollections(message.data.collections || []);
+            setTablesList(message.data.tables || []);
             setLoading(false);
             break;
           case "databasesList":
@@ -715,7 +721,25 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
 
     setLoading(true);
     setError(null);
-    vscode.postMessage({ type: "executeQuery", data: { sql } });
+
+    // Determine context for execution
+    let context = undefined;
+    if (selectedCollection) {
+      context = {
+        kind: "collection",
+        cleanName: selectedCollection,
+      };
+    } else if (selectedTable) {
+      context = {
+        kind: "table",
+        tableName: selectedTable,
+      };
+    }
+
+    vscode.postMessage({
+      type: "executeQuery",
+      data: { sql, context },
+    });
   };
 
   const handleRefreshCollections = () => {
@@ -726,6 +750,7 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const handleCollectionClick = (collectionName: string) => {
     setCurrentView("collection");
     setSelectedCollection(collectionName);
+    setSelectedTable(null);
     const newQuery = `SELECT * FROM \`${collectionName}\``;
     setQuery(newQuery);
     setLoading(true);
@@ -737,6 +762,24 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     vscode.postMessage({
       type: "loadCollectionData",
       data: { collectionName },
+    });
+  };
+
+  const handleTableClick = (tableName: string) => {
+    setCurrentView("collection");
+    setSelectedCollection(null);
+    setSelectedTable(tableName);
+    const newQuery = `SELECT * FROM \`${tableName}\``;
+    setQuery(newQuery);
+    setLoading(true);
+    setError(null);
+    // 重置模型信息
+    setCollectionModelName(null);
+    setSearchModelName(null);
+    setModelWarning(null);
+    vscode.postMessage({
+      type: "loadTableData",
+      data: { tableName },
     });
   };
 
@@ -1444,7 +1487,7 @@ for i, doc in enumerate(results['documents'][0]):
           <div className="tree-container">
             {/* Database node */}
             <div
-              className="tree-item"
+              className="tree-item level-1"
               onClick={() => toggleNode("db")}
               style={{ cursor: "pointer" }}
             >
@@ -1459,6 +1502,27 @@ for i, doc in enumerate(results['documents'][0]):
               <span className="item-name">
                 {connectionInfo.database || "information_schema"}
               </span>
+              <div className="tree-item-actions">
+                <button
+                  className="tree-action-btn delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      confirm(
+                        `Are you sure you want to delete database "${connectionInfo.database}"? This cannot be undone.`,
+                      )
+                    ) {
+                      vscode.postMessage({
+                        type: "deleteDatabase",
+                        data: { name: connectionInfo.database },
+                      });
+                    }
+                  }}
+                  title="Delete Database"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
 
             {expandedNodes.has("db") && (
@@ -1769,6 +1833,51 @@ for i, doc in enumerate(results['documents'][0]):
                     )}
                   </div>
                 )}
+
+                {/* Tables node (only for SeekDB mode when we want to distinguish) */}
+                {isSeekDB && tablesList.length > 0 && (
+                  <>
+                    <div
+                      className="tree-item level-1"
+                      onClick={() => toggleNode("tables")}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <span className="expand-icon">
+                        {expandedNodes.has("tables") ? (
+                          <ChevronDown size={12} />
+                        ) : (
+                          <ChevronRight size={12} />
+                        )}
+                      </span>
+                      <TableIcon size={14} className="item-icon" />
+                      <span className="item-name">tables</span>
+                      <span className="tree-group-count">
+                        ({tablesList.length})
+                      </span>
+                    </div>
+
+                    {expandedNodes.has("tables") && (
+                      <div>
+                        {tablesList.map((table) => (
+                          <div
+                            key={table.name}
+                            className={`tree-item level-2 collection-item ${
+                              selectedTable === table.name ? "selected" : ""
+                            }`}
+                            onClick={() => handleTableClick(table.name)}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <span className="expand-icon">
+                              <ChevronRight size={12} />
+                            </span>
+                            <Grid size={14} className="item-icon" />
+                            <span className="item-name">{table.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1778,40 +1887,19 @@ for i, doc in enumerate(results['documents'][0]):
             <div className="collection-dialog-overlay">
               <div className="collection-dialog">
                 <h4>Create {terminology.Collection}</h4>
-                {isSeekDB ? (
-                  <div className="collection-input-with-prefix">
-                    <span className="collection-prefix-label">
-                      {COLLECTION_PREFIX}
-                    </span>
-                    <input
-                      type="text"
-                      className="collection-dialog-input with-prefix"
-                      placeholder={`Enter ${terminology.collection} name...`}
-                      value={newCollectionName}
-                      onChange={(e) => setNewCollectionName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleCreateCollection();
-                        if (e.key === "Escape") handleCancelCreateCollection();
-                      }}
-                      autoFocus
-                      disabled={collectionOperationLoading}
-                    />
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    className="collection-dialog-input"
-                    placeholder={`Enter ${terminology.collection} name...`}
-                    value={newCollectionName}
-                    onChange={(e) => setNewCollectionName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreateCollection();
-                      if (e.key === "Escape") handleCancelCreateCollection();
-                    }}
-                    autoFocus
-                    disabled={collectionOperationLoading}
-                  />
-                )}
+                <input
+                  type="text"
+                  className="collection-dialog-input"
+                  placeholder={`Enter ${terminology.collection} name...`}
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateCollection();
+                    if (e.key === "Escape") handleCancelCreateCollection();
+                  }}
+                  autoFocus
+                  disabled={collectionOperationLoading}
+                />
                 <div className="collection-dialog-actions">
                   <button
                     className="btn btn-primary btn-sm"
