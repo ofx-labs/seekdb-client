@@ -157,6 +157,30 @@
         "title": "Open Template",
         "icon": "$(link-external)",
         "category": "seekdb"
+      },
+      {
+        "command": "seekdb.forkTable",
+        "title": "Fork Table",
+        "icon": "$(git-branch)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.promoteFork",
+        "title": "Promote Fork (Replace Source)",
+        "icon": "$(arrow-up)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.discardFork",
+        "title": "Discard Fork",
+        "icon": "$(trash)",
+        "category": "seekdb"
+      },
+      {
+        "command": "seekdb.compareTables",
+        "title": "Compare Tables (Schema Diff)",
+        "icon": "$(diff)",
+        "category": "seekdb"
       }
     ],
     "menus": {

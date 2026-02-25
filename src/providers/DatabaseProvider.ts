@@ -1196,6 +1196,31 @@ export class DatabaseProvider {
         case "createDocument":
           await this.handleCreateDocument(message.data, panel, connection);
           break;
+        // Fork Table operations
+        case "forkTable":
+          await this.handleForkTable(message.data, panel, connection);
+          break;
+        case "promoteFork":
+          await this.handlePromoteFork(message.data, panel, connection);
+          break;
+        case "discardFork":
+          await this.handleDiscardFork(message.data, panel, connection);
+          break;
+        case "compareTables":
+          await this.handleCompareTables(message.data, panel, connection);
+          break;
+        case "getForkInfo":
+          await this.handleGetForkInfo(message.data, panel, connection);
+          break;
+        case "abTestCreate":
+          await this.handleABTestCreate(message.data, panel, connection);
+          break;
+        case "abTestRunQuery":
+          await this.handleABTestRunQuery(message.data, panel, connection);
+          break;
+        case "abTestCleanup":
+          await this.handleABTestCleanup(message.data, panel, connection);
+          break;
         // OceanBase Cloud table operations
         case "createTable":
           await this.handleCreateTable(message.data, panel, connection);
@@ -3805,6 +3830,558 @@ export class DatabaseProvider {
       panel.webview.postMessage({
         type: "documentError",
         data: { error: errorMsg },
+      });
+    }
+  }
+
+  // ============================================
+  // Fork Table Operations
+  // ============================================
+
+  /**
+   * Resolve a display name to the actual SQL table name using the SDK's
+   * resolveCollectionTableName (supports c$v1$ and c$v2$ prefixes via
+   * sdk_collections lookup). Falls back to the raw name for plain tables.
+   */
+  private async resolveActualTableName(
+    connection: DatabaseConnection,
+    displayName: string,
+  ): Promise<string> {
+    if (isCollectionBackingTable(displayName)) {
+      return displayName;
+    }
+    const { allTables } = await this.getTables(connection);
+    const allTableNames = allTables.map((t) => t.name);
+    const resolved = await resolveCollectionTableName(
+      displayName,
+      allTableNames,
+      async (sql: string) =>
+        await this.executeSeekDBQuery(connection.id, sql),
+    );
+    return resolved || displayName;
+  }
+
+  /**
+   * Build a target table name that lives in the same namespace as the source.
+   * If the source resolves to a prefixed name (e.g. c$v1$docs), the target
+   * will get the same prefix (e.g. c$v1$docs_fork_123).
+   */
+  private buildForkTargetName(
+    resolvedSource: string,
+    targetDisplayName: string,
+  ): string {
+    const { prefix } = stripCollectionPrefix(resolvedSource);
+    if (!prefix) {
+      return targetDisplayName;
+    }
+    if (targetDisplayName.startsWith(prefix)) {
+      return targetDisplayName;
+    }
+    return `${prefix}${targetDisplayName}`;
+  }
+
+  /**
+   * Handle fork table - creates a zero-copy clone using FORK TABLE SQL
+   */
+  private async handleForkTable(
+    data: { sourceTable: string; targetTable: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Fork Table is only supported on SeekDB connections" },
+      });
+      return;
+    }
+
+    try {
+      const sourceTable = data.sourceTable.trim();
+      const targetTable = data.targetTable.trim();
+
+      if (!sourceTable || !targetTable) {
+        panel.webview.postMessage({
+          type: "forkError",
+          data: { error: "Source and target table names are required" },
+        });
+        return;
+      }
+
+      if (sourceTable === targetTable) {
+        panel.webview.postMessage({
+          type: "forkError",
+          data: { error: "Target table name must differ from source" },
+        });
+        return;
+      }
+
+      const actualSource = await this.resolveActualTableName(
+        connection,
+        sourceTable,
+      );
+      const actualTarget = this.buildForkTargetName(actualSource, targetTable);
+
+      const startTime = Date.now();
+      const sql = `FORK TABLE \`${actualSource}\` TO \`${actualTarget}\``;
+      await this.executeSeekDBQuery(connection.id, sql);
+      const elapsed = Date.now() - startTime;
+
+      this.addWarning(
+        "info",
+        `Fork completed in ${elapsed}ms: ${sourceTable} → ${targetTable}`,
+      );
+      vscode.window.showInformationMessage(
+        `Fork completed in ${elapsed}ms: ${sourceTable} → ${targetTable}`,
+      );
+
+      panel.webview.postMessage({
+        type: "forkCreated",
+        data: { sourceTable, targetTable, elapsed },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Fork failed: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `Fork failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle promote fork - replaces source table with the fork using RENAME TABLE
+   */
+  private async handlePromoteFork(
+    data: { sourceTable: string; forkTable: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support this operation" },
+      });
+      return;
+    }
+
+    try {
+      const { sourceTable, forkTable } = data;
+      const actualSource = await this.resolveActualTableName(
+        connection,
+        sourceTable,
+      );
+      const actualFork = await this.resolveActualTableName(
+        connection,
+        forkTable,
+      );
+      const backupSuffix = `_backup_${Date.now()}`;
+      const actualBackup = this.buildForkTargetName(
+        actualSource,
+        `${sourceTable}${backupSuffix}`,
+      );
+
+      const sql = `RENAME TABLE \`${actualSource}\` TO \`${actualBackup}\`, \`${actualFork}\` TO \`${actualSource}\``;
+      await this.executeSeekDBQuery(connection.id, sql);
+
+      this.addWarning(
+        "info",
+        `Fork promoted: ${forkTable} → ${sourceTable} (backup: ${sourceTable}${backupSuffix})`,
+      );
+      vscode.window.showInformationMessage(
+        `Fork promoted successfully. Old table backed up as "${sourceTable}${backupSuffix}"`,
+      );
+
+      panel.webview.postMessage({
+        type: "forkPromoted",
+        data: { sourceTable, forkTable, backupName: `${sourceTable}${backupSuffix}` },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Promote fork failed: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `Promote failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle discard fork - drops the forked table
+   */
+  private async handleDiscardFork(
+    data: { forkTable: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support this operation" },
+      });
+      return;
+    }
+
+    try {
+      const actualFork = await this.resolveActualTableName(
+        connection,
+        data.forkTable,
+      );
+      const sql = `DROP TABLE IF EXISTS \`${actualFork}\``;
+      await this.executeSeekDBQuery(connection.id, sql);
+
+      this.addWarning("info", `Fork discarded: ${data.forkTable}`);
+      vscode.window.showInformationMessage(
+        `Fork "${data.forkTable}" discarded successfully`,
+      );
+
+      panel.webview.postMessage({
+        type: "forkDiscarded",
+        data: { forkTable: data.forkTable },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Discard fork failed: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `Discard failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle compare tables - compares schema between two tables
+   */
+  private async handleCompareTables(
+    data: { tableA: string; tableB: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support this operation" },
+      });
+      return;
+    }
+
+    try {
+      const { tableA, tableB } = data;
+      const actualA = await this.resolveActualTableName(connection, tableA);
+      const actualB = await this.resolveActualTableName(connection, tableB);
+
+      const descA = await this.executeSeekDBQuery(
+        connection.id,
+        `DESCRIBE \`${actualA}\``,
+      );
+      const descB = await this.executeSeekDBQuery(
+        connection.id,
+        `DESCRIBE \`${actualB}\``,
+      );
+
+      const countA = await this.executeSeekDBQuery(
+        connection.id,
+        `SELECT COUNT(*) AS cnt FROM \`${actualA}\``,
+      );
+      const countB = await this.executeSeekDBQuery(
+        connection.id,
+        `SELECT COUNT(*) AS cnt FROM \`${actualB}\``,
+      );
+
+      const columnsA = (descA.rows || []).map((r: any) => ({
+        field: r.Field,
+        type: r.Type,
+        null: r.Null,
+        key: r.Key,
+        default: r.Default,
+        extra: r.Extra,
+      }));
+      const columnsB = (descB.rows || []).map((r: any) => ({
+        field: r.Field,
+        type: r.Type,
+        null: r.Null,
+        key: r.Key,
+        default: r.Default,
+        extra: r.Extra,
+      }));
+
+      const rowCountA = countA.rows?.[0]?.cnt ?? 0;
+      const rowCountB = countB.rows?.[0]?.cnt ?? 0;
+
+      const allFields = new Set([
+        ...columnsA.map((c: any) => c.field),
+        ...columnsB.map((c: any) => c.field),
+      ]);
+
+      const diff: any[] = [];
+      for (const field of allFields) {
+        const colA = columnsA.find((c: any) => c.field === field);
+        const colB = columnsB.find((c: any) => c.field === field);
+
+        if (!colA) {
+          diff.push({ field, status: "added", tableA: null, tableB: colB });
+        } else if (!colB) {
+          diff.push({ field, status: "removed", tableA: colA, tableB: null });
+        } else if (
+          colA.type !== colB.type ||
+          colA.null !== colB.null ||
+          colA.key !== colB.key
+        ) {
+          diff.push({ field, status: "modified", tableA: colA, tableB: colB });
+        } else {
+          diff.push({
+            field,
+            status: "unchanged",
+            tableA: colA,
+            tableB: colB,
+          });
+        }
+      }
+
+      panel.webview.postMessage({
+        type: "compareResult",
+        data: {
+          tableA,
+          tableB,
+          rowCountA,
+          rowCountB,
+          columnsA,
+          columnsB,
+          diff,
+        },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `Compare tables failed: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `Compare failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle get fork info - retrieves fork metadata for a table.
+   * Uses getTables() to get the full table list from the database.
+   */
+  private async handleGetForkInfo(
+    data: { tableName: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      return;
+    }
+
+    try {
+      const { tableName } = data;
+      const { cleanName } = stripCollectionPrefix(tableName);
+      const baseName = cleanName
+        .replace(/_fork_\d+$/, "")
+        .replace(/_safe_\d+$/, "")
+        .replace(/_variant_[a-z]$/, "")
+        .replace(/_backup_\d+$/, "")
+        .replace(/_v\d+$/, "");
+
+      const { allTables } = await this.getTables(connection);
+      const allTableNames = allTables.map((t) => t.name);
+
+      const escapedBase = baseName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const forkPattern = new RegExp(
+        `(^|\\$)${escapedBase}(_fork_\\d+|_safe_\\d+|_variant_[a-z]|_backup_\\d+|_v\\d+)?$`,
+      );
+      const relatedTables = allTableNames.filter((t: string) => {
+        const { cleanName: clean } = stripCollectionPrefix(t);
+        return clean === baseName || forkPattern.test(clean);
+      });
+
+      const displayNames = relatedTables.map((t: string) => {
+        const { cleanName: clean } = stripCollectionPrefix(t);
+        return clean;
+      });
+
+      panel.webview.postMessage({
+        type: "forkInfo",
+        data: { tableName, baseName, relatedTables: displayNames },
+      });
+    } catch (error) {
+      console.error("[DatabaseProvider] Error getting fork info:", error);
+    }
+  }
+
+  /**
+   * Handle A/B test creation - forks a table into multiple variants
+   */
+  private async handleABTestCreate(
+    data: { sourceTable: string; variantCount: number; variantNames?: string[] },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support A/B testing" },
+      });
+      return;
+    }
+
+    try {
+      const { sourceTable, variantCount, variantNames } = data;
+      const actualSource = await this.resolveActualTableName(
+        connection,
+        sourceTable,
+      );
+      const variants: { name: string; elapsed: number }[] = [];
+
+      for (let i = 0; i < variantCount; i++) {
+        const variantDisplayName =
+          variantNames?.[i] ||
+          `${sourceTable}_variant_${String.fromCharCode(97 + i)}`;
+        const actualTarget = this.buildForkTargetName(
+          actualSource,
+          variantDisplayName,
+        );
+        const startTime = Date.now();
+        const sql = `FORK TABLE \`${actualSource}\` TO \`${actualTarget}\``;
+        await this.executeSeekDBQuery(connection.id, sql);
+        const elapsed = Date.now() - startTime;
+        variants.push({ name: variantDisplayName, elapsed });
+      }
+
+      this.addWarning(
+        "info",
+        `A/B test created: ${variants.length} variants from ${sourceTable}`,
+      );
+      vscode.window.showInformationMessage(
+        `A/B test created: ${variants.length} variants from "${sourceTable}"`,
+      );
+
+      panel.webview.postMessage({
+        type: "abTestCreated",
+        data: { sourceTable, variants },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.addWarning("error", `A/B test creation failed: ${errorMsg}`);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `A/B test creation failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle A/B test query - runs the same query against multiple variants
+   */
+  private async handleABTestRunQuery(
+    data: { variants: string[]; sql: string },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support A/B testing" },
+      });
+      return;
+    }
+
+    try {
+      const { variants, sql } = data;
+      const results: {
+        variant: string;
+        elapsed: number;
+        rowCount: number;
+        error?: string;
+      }[] = [];
+
+      for (const variant of variants) {
+        const actualVariant = await this.resolveActualTableName(
+          connection,
+          variant,
+        );
+        const variantSql = sql.replace(/\{table\}/g, actualVariant);
+        const startTime = Date.now();
+        try {
+          const result = await this.executeSeekDBQuery(
+            connection.id,
+            variantSql,
+          );
+          const elapsed = Date.now() - startTime;
+          results.push({
+            variant,
+            elapsed,
+            rowCount: result.rows?.length ?? 0,
+          });
+        } catch (queryError) {
+          const elapsed = Date.now() - startTime;
+          results.push({
+            variant,
+            elapsed,
+            rowCount: 0,
+            error:
+              queryError instanceof Error
+                ? queryError.message
+                : String(queryError),
+          });
+        }
+      }
+
+      panel.webview.postMessage({
+        type: "abTestQueryResult",
+        data: { sql, results },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `A/B test query failed: ${errorMsg}` },
+      });
+    }
+  }
+
+  /**
+   * Handle A/B test cleanup - drops all variant tables
+   */
+  private async handleABTestCleanup(
+    data: { variants: string[] },
+    panel: vscode.WebviewPanel,
+    connection: DatabaseConnection,
+  ): Promise<void> {
+    if (!this.isSeekDBConnection(connection)) {
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: "Only SeekDB connections support this operation" },
+      });
+      return;
+    }
+
+    try {
+      for (const variant of data.variants) {
+        const actualVariant = await this.resolveActualTableName(
+          connection,
+          variant,
+        );
+        await this.executeSeekDBQuery(
+          connection.id,
+          `DROP TABLE IF EXISTS \`${actualVariant}\``,
+        );
+      }
+
+      this.addWarning(
+        "info",
+        `A/B test cleanup: ${data.variants.length} variants dropped`,
+      );
+
+      panel.webview.postMessage({
+        type: "abTestCleanedUp",
+        data: { variants: data.variants },
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      panel.webview.postMessage({
+        type: "forkError",
+        data: { error: `Cleanup failed: ${errorMsg}` },
       });
     }
   }

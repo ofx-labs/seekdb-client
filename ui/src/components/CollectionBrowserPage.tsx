@@ -26,12 +26,19 @@ import {
   Code2,
   Copy,
   Network,
+  GitBranch,
+  ArrowUp,
+  Diff,
+  FlaskConical,
+  GitFork,
+  Shield,
+  MoreHorizontal,
 } from "lucide-react";
 import "./CollectionBrowserPage.css";
 import TableStructureVisualizer from "./TableStructureVisualizer";
 
 type EmbeddingType = "builtin" | "openai" | "ollama" | "anthropic" | "qwen";
-type CodeSnippetType = "nodejs-seekdb" | "python-pyseekdb";
+type CodeSnippetType = "nodejs-seekdb" | "python-pyseekdb" | "nodejs-fork" | "python-fork";
 
 interface ConnectionInfo {
   name: string;
@@ -85,6 +92,28 @@ interface TableColumn {
 interface Table {
   name: string;
   columns: TableColumn[];
+}
+
+/** Schema diff entry */
+interface SchemaDiffEntry {
+  field: string;
+  status: "unchanged" | "modified" | "added" | "removed";
+  tableA: { field: string; type: string; null: string; key: string; default: any; extra: string } | null;
+  tableB: { field: string; type: string; null: string; key: string; default: any; extra: string } | null;
+}
+
+/** A/B test variant */
+interface ABTestVariant {
+  name: string;
+  elapsed: number;
+}
+
+/** A/B test query result */
+interface ABTestQueryResultEntry {
+  variant: string;
+  elapsed: number;
+  rowCount: number;
+  error?: string;
 }
 
 declare global {
@@ -223,6 +252,57 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [savedTableStructures, setSavedTableStructures] = useState<
     { name: string; tables: Table[] }[]
   >([]);
+
+  // Fork Table 相关状态
+  const [showForkDialog, setShowForkDialog] = useState(false);
+  const [forkSourceTable, setForkSourceTable] = useState("");
+  const [forkTargetTable, setForkTargetTable] = useState("");
+  const [forkLoading, setForkLoading] = useState(false);
+
+  // Collection 操作菜单状态
+  const [collectionActionMenu, setCollectionActionMenu] = useState<{
+    visible: boolean;
+    collectionName: string;
+    x: number;
+    y: number;
+  }>({ visible: false, collectionName: "", x: 0, y: 0 });
+  const collectionActionMenuRef = useRef<HTMLDivElement>(null);
+
+  // Safe Change 工作流状态
+  const [safeChangeMode, setSafeChangeMode] = useState(false);
+  const [safeChangeSource, setSafeChangeSource] = useState("");
+  const [safeChangeFork, setSafeChangeFork] = useState("");
+
+  // Schema Diff 状态
+  const [showSchemaDiff, setShowSchemaDiff] = useState(false);
+  const [schemaDiffData, setSchemaDiffData] = useState<{
+    tableA: string;
+    tableB: string;
+    rowCountA: number;
+    rowCountB: number;
+    diff: SchemaDiffEntry[];
+  } | null>(null);
+  const [schemaDiffLoading, setSchemaDiffLoading] = useState(false);
+  const [schemaDiffTableA, setSchemaDiffTableA] = useState("");
+  const [schemaDiffTableB, setSchemaDiffTableB] = useState("");
+
+  // Fork 血缘图状态
+  const [showForkLineage, setShowForkLineage] = useState(false);
+  const [forkLineageData, setForkLineageData] = useState<{
+    tableName: string;
+    baseName: string;
+    relatedTables: string[];
+  } | null>(null);
+
+  // A/B 测试状态
+  const [showABTestDialog, setShowABTestDialog] = useState(false);
+  const [abTestSource, setAbTestSource] = useState("");
+  const [abTestVariantCount, setAbTestVariantCount] = useState(2);
+  const [abTestVariants, setAbTestVariants] = useState<ABTestVariant[]>([]);
+  const [abTestLoading, setAbTestLoading] = useState(false);
+  const [abTestQuery, setAbTestQuery] = useState("SELECT COUNT(*) FROM `{table}`");
+  const [abTestResults, setAbTestResults] = useState<ABTestQueryResultEntry[]>([]);
+  const [abTestRunning, setAbTestRunning] = useState(false);
 
   // 侧边栏宽度拖动相关状态
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
@@ -412,6 +492,85 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setVisualizerLoading(false);
             setError(null);
             break;
+          // Fork Table responses
+          case "forkCreated":
+            console.log("[CollectionBrowser] Fork created:", message.data);
+            setForkLoading(false);
+            setShowForkDialog(false);
+            setForkSourceTable("");
+            setForkTargetTable("");
+            setSuccessMessage(
+              `Fork created in ${message.data?.elapsed}ms: ${message.data?.sourceTable} → ${message.data?.targetTable}`,
+            );
+            setTimeout(() => setSuccessMessage(null), 5000);
+            if (safeChangeMode) {
+              setSafeChangeFork(message.data?.targetTable || "");
+            }
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "forkPromoted":
+            console.log("[CollectionBrowser] Fork promoted:", message.data);
+            setSafeChangeMode(false);
+            setSafeChangeSource("");
+            setSafeChangeFork("");
+            setSuccessMessage(
+              `Fork promoted! Old table backed up as "${message.data?.backupName}"`,
+            );
+            setTimeout(() => setSuccessMessage(null), 5000);
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "forkDiscarded":
+            console.log("[CollectionBrowser] Fork discarded:", message.data);
+            setSafeChangeMode(false);
+            setSafeChangeFork("");
+            setSuccessMessage(`Fork "${message.data?.forkTable}" discarded`);
+            setTimeout(() => setSuccessMessage(null), 3000);
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "compareResult":
+            console.log("[CollectionBrowser] Compare result:", message.data);
+            setSchemaDiffLoading(false);
+            setSchemaDiffData(message.data);
+            setShowSchemaDiff(true);
+            break;
+          case "forkInfo":
+            console.log("[CollectionBrowser] Fork info:", message.data);
+            setForkLineageData(message.data);
+            setShowForkLineage(true);
+            break;
+          case "abTestCreated":
+            console.log("[CollectionBrowser] A/B test created:", message.data);
+            setAbTestLoading(false);
+            setAbTestVariants(message.data?.variants || []);
+            setSuccessMessage(
+              `A/B test: ${message.data?.variants?.length} variants created from "${message.data?.sourceTable}"`,
+            );
+            setTimeout(() => setSuccessMessage(null), 5000);
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "abTestQueryResult":
+            console.log("[CollectionBrowser] A/B test results:", message.data);
+            setAbTestRunning(false);
+            setAbTestResults(message.data?.results || []);
+            break;
+          case "abTestCleanedUp":
+            console.log("[CollectionBrowser] A/B test cleaned up:", message.data);
+            setAbTestVariants([]);
+            setAbTestResults([]);
+            setShowABTestDialog(false);
+            setSuccessMessage("A/B test variants cleaned up");
+            setTimeout(() => setSuccessMessage(null), 3000);
+            vscode.postMessage({ type: "refreshCollections" });
+            break;
+          case "forkError":
+            console.error("[CollectionBrowser] Fork error:", message.data?.error);
+            setForkLoading(false);
+            setSchemaDiffLoading(false);
+            setAbTestLoading(false);
+            setAbTestRunning(false);
+            setError(message.data?.error || "Fork operation failed");
+            break;
+
           case "tableStructuresError":
             // 获取表结构失败
             console.error(
@@ -628,6 +787,26 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [contextMenu.visible]);
+
+  // 点击外部关闭 collection 操作菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        collectionActionMenuRef.current &&
+        !collectionActionMenuRef.current.contains(event.target as Node)
+      ) {
+        setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    if (collectionActionMenu.visible) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [collectionActionMenu.visible]);
 
   // 侧边栏拖动逻辑
   useEffect(() => {
@@ -1007,6 +1186,133 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   // 取消删除集合
   const handleCancelDeleteCollection = () => {
     setCollectionToDelete(null);
+  };
+
+  // ============================================
+  // Fork Table Handlers
+  // ============================================
+
+  const handleShowForkDialog = (tableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setForkSourceTable(tableName);
+    setForkTargetTable(`${tableName}_fork_${Date.now()}`);
+    setShowForkDialog(true);
+  };
+
+  const handleConfirmFork = () => {
+    if (!forkSourceTable || !forkTargetTable.trim()) {
+      setError("Please enter a target table name");
+      return;
+    }
+    setForkLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "forkTable",
+      data: { sourceTable: forkSourceTable, targetTable: forkTargetTable.trim() },
+    });
+  };
+
+  const handleCancelFork = () => {
+    setShowForkDialog(false);
+    setForkSourceTable("");
+    setForkTargetTable("");
+  };
+
+  // Safe Change workflow
+  const handleStartSafeChange = (tableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const forkName = `${tableName}_safe_${Date.now()}`;
+    setSafeChangeSource(tableName);
+    setSafeChangeMode(true);
+    setForkLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "forkTable",
+      data: { sourceTable: tableName, targetTable: forkName },
+    });
+  };
+
+  const handlePromoteFork = () => {
+    if (!safeChangeSource || !safeChangeFork) return;
+    vscode.postMessage({
+      type: "promoteFork",
+      data: { sourceTable: safeChangeSource, forkTable: safeChangeFork },
+    });
+  };
+
+  const handleDiscardFork = () => {
+    if (!safeChangeFork) return;
+    vscode.postMessage({
+      type: "discardFork",
+      data: { forkTable: safeChangeFork },
+    });
+  };
+
+  // Schema Diff
+  const handleShowSchemaDiff = (tableA?: string, tableB?: string) => {
+    const a = tableA || schemaDiffTableA;
+    const b = tableB || schemaDiffTableB;
+    if (!a || !b) {
+      setError("Please select two tables to compare");
+      return;
+    }
+    setSchemaDiffLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "compareTables",
+      data: { tableA: a, tableB: b },
+    });
+  };
+
+  // Fork Lineage
+  const handleShowForkLineage = (tableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    vscode.postMessage({
+      type: "getForkInfo",
+      data: { tableName },
+    });
+  };
+
+  // A/B Test
+  const handleStartABTest = (tableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAbTestSource(tableName);
+    setAbTestVariantCount(2);
+    setAbTestVariants([]);
+    setAbTestResults([]);
+    setAbTestQuery(`SELECT COUNT(*) FROM \`{table}\``);
+    setShowABTestDialog(true);
+  };
+
+  const handleCreateABTest = () => {
+    if (!abTestSource) return;
+    setAbTestLoading(true);
+    setError(null);
+    vscode.postMessage({
+      type: "abTestCreate",
+      data: { sourceTable: abTestSource, variantCount: abTestVariantCount },
+    });
+  };
+
+  const handleRunABTestQuery = () => {
+    if (abTestVariants.length === 0 || !abTestQuery.trim()) return;
+    setAbTestRunning(true);
+    setError(null);
+    vscode.postMessage({
+      type: "abTestRunQuery",
+      data: {
+        variants: abTestVariants.map((v) => v.name),
+        sql: abTestQuery,
+      },
+    });
+  };
+
+  const handleCleanupABTest = () => {
+    if (abTestVariants.length === 0) return;
+    vscode.postMessage({
+      type: "abTestCleanup",
+      data: { variants: abTestVariants.map((v) => v.name) },
+    });
   };
 
   // 文档行右键菜单
@@ -1392,6 +1698,79 @@ for i, doc in enumerate(results['documents'][0]):
         print(f"  Metadata: {results['metadatas'][0][i]}")
     print()`;
 
+      case "nodejs-fork":
+        return `const mysql = require('mysql2/promise');
+
+async function forkTableWorkflow() {
+  const conn = await mysql.createConnection({
+    host: "${host}",
+    port: ${port},
+    user: "root@sys",
+    database: "${database}",
+  });
+
+  const source = "${collection}";
+  const fork = "${collection}_fork_" + Date.now();
+
+  // 1. Fork table (milliseconds, zero-copy)
+  await conn.execute(\`FORK TABLE \\\`\${source}\\\` TO \\\`\${fork}\\\`\`);
+  console.log("Fork created:", fork);
+
+  // 2. Safely modify the fork
+  // await conn.execute(\`ALTER TABLE \\\`\${fork}\\\` ADD COLUMN tags VARCHAR(255)\`);
+
+  // 3. Validate changes
+  const [rows] = await conn.execute(\`SELECT COUNT(*) AS cnt FROM \\\`\${fork}\\\`\`);
+  console.log("Fork row count:", rows[0].cnt);
+
+  // 4. Promote fork to replace source (atomic swap)
+  // await conn.execute(\`RENAME TABLE \\\`\${source}\\\` TO \\\`\${source}_old\\\`, \\\`\${fork}\\\` TO \\\`\${source}\\\`\`);
+
+  // Or discard the fork
+  // await conn.execute(\`DROP TABLE IF EXISTS \\\`\${fork}\\\`\`);
+
+  await conn.end();
+}
+
+forkTableWorkflow().catch(console.error);`;
+
+      case "python-fork":
+        return `import pymysql
+
+def fork_table_workflow():
+    conn = pymysql.connect(
+        host="${host}",
+        port=${port},
+        user="root@sys",
+        db="${database}",
+    )
+    cursor = conn.cursor()
+
+    source = "${collection}"
+    fork = f"${collection}_fork_{int(__import__('time').time())}"
+
+    # 1. Fork table (milliseconds, zero-copy)
+    cursor.execute(f"FORK TABLE \`{source}\` TO \`{fork}\`")
+    print(f"Fork created: {fork}")
+
+    # 2. Safely modify the fork
+    # cursor.execute(f"ALTER TABLE \`{fork}\` ADD COLUMN tags VARCHAR(255)")
+
+    # 3. Validate changes
+    cursor.execute(f"SELECT COUNT(*) FROM \`{fork}\`")
+    print(f"Fork row count: {cursor.fetchone()[0]}")
+
+    # 4. Promote fork (atomic swap)
+    # cursor.execute(f"RENAME TABLE \`{source}\` TO \`{source}_old\`, \`{fork}\` TO \`{source}\`")
+
+    # Or discard
+    # cursor.execute(f"DROP TABLE IF EXISTS \`{fork}\`")
+
+    conn.commit()
+    conn.close()
+
+fork_table_workflow()`;
+
       default:
         return "";
     }
@@ -1740,7 +2119,15 @@ for i, doc in enumerate(results['documents'][0]):
                           <span className="expand-icon">
                             <ChevronRight size={12} />
                           </span>
-                          <File size={14} className="item-icon" />
+                          {collection.name.includes("_fork_") ||
+                          collection.name.includes("_safe_") ||
+                          collection.name.includes("_variant_") ? (
+                            <GitFork size={14} className="item-icon" style={{ color: "var(--vscode-charts-yellow)" }} />
+                          ) : collection.name.includes("_backup_") ? (
+                            <File size={14} className="item-icon" style={{ opacity: 0.5 }} />
+                          ) : (
+                            <File size={14} className="item-icon" />
+                          )}
                           {editingCollectionName === collection.name &&
                           isSeekDB ? (
                             <div
@@ -1801,15 +2188,19 @@ for i, doc in enumerate(results['documents'][0]):
                                   {isSeekDB && (
                                     <button
                                       className="collection-action-btn"
-                                      onClick={(e) =>
-                                        handleStartRenameCollection(
-                                          collection.name,
-                                          e,
-                                        )
-                                      }
-                                      title="Rename"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const rect = (e.target as HTMLElement).closest('button')!.getBoundingClientRect();
+                                        setCollectionActionMenu({
+                                          visible: true,
+                                          collectionName: collection.name,
+                                          x: rect.left,
+                                          y: rect.bottom + 2,
+                                        });
+                                      }}
+                                      title="More actions..."
                                     >
-                                      <Pencil size={12} />
+                                      <MoreHorizontal size={12} />
                                     </button>
                                   )}
                                   <button
@@ -1870,8 +2261,36 @@ for i, doc in enumerate(results['documents'][0]):
                             <span className="expand-icon">
                               <ChevronRight size={12} />
                             </span>
-                            <Grid size={14} className="item-icon" />
+                            {table.name.includes("_fork_") ||
+                            table.name.includes("_safe_") ||
+                            table.name.includes("_variant_") ? (
+                              <GitFork size={14} className="item-icon" style={{ color: "var(--vscode-charts-yellow)" }} />
+                            ) : table.name.includes("_backup_") ? (
+                              <Grid size={14} className="item-icon" style={{ opacity: 0.5 }} />
+                            ) : (
+                              <Grid size={14} className="item-icon" />
+                            )}
                             <span className="item-name">{table.name}</span>
+                            <div className="collection-item-actions">
+                              <button
+                                className="collection-action-btn"
+                                onClick={(e) =>
+                                  handleShowForkDialog(table.name, e)
+                                }
+                                title="Fork Table"
+                              >
+                                <GitBranch size={12} />
+                              </button>
+                              <button
+                                className="collection-action-btn"
+                                onClick={(e) =>
+                                  handleShowForkLineage(table.name, e)
+                                }
+                                title="View Fork Lineage"
+                              >
+                                <Network size={12} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1961,6 +2380,483 @@ for i, doc in enumerate(results['documents'][0]):
               </div>
             </div>
           )}
+
+          {/* Collection 操作菜单 (浮动下拉) */}
+          {collectionActionMenu.visible && (
+            <div
+              ref={collectionActionMenuRef}
+              className="collection-action-dropdown"
+              style={{
+                position: "fixed",
+                top: collectionActionMenu.y,
+                left: collectionActionMenu.x,
+                zIndex: 1000,
+                background: "var(--sidebar-bg)",
+                border: "1px solid var(--border-color)",
+                borderRadius: 6,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                padding: "4px 0",
+                minWidth: 200,
+                fontSize: 12,
+              }}
+            >
+              <div
+                className="dropdown-item"
+                onClick={(e) => {
+                  handleShowForkDialog(collectionActionMenu.collectionName, e);
+                  setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+                }}
+              >
+                <GitBranch size={14} /> Fork Table
+              </div>
+              <div
+                className="dropdown-item"
+                onClick={(e) => {
+                  handleStartSafeChange(collectionActionMenu.collectionName, e);
+                  setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+                }}
+              >
+                <Shield size={14} /> Safe Change (Fork & Edit)
+              </div>
+              <div
+                className="dropdown-item"
+                onClick={(e) => {
+                  handleShowForkLineage(collectionActionMenu.collectionName, e);
+                  setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+                }}
+              >
+                <Network size={14} /> View Fork Lineage
+              </div>
+              <div
+                className="dropdown-item"
+                onClick={(e) => {
+                  handleStartABTest(collectionActionMenu.collectionName, e);
+                  setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+                }}
+              >
+                <FlaskConical size={14} /> A/B Test
+              </div>
+              <div style={{ borderTop: "1px solid var(--border-color)", margin: "4px 0" }} />
+              <div
+                className="dropdown-item"
+                onClick={(e) => {
+                  handleStartRenameCollection(collectionActionMenu.collectionName, e);
+                  setCollectionActionMenu((prev) => ({ ...prev, visible: false }));
+                }}
+              >
+                <Pencil size={14} /> Rename
+              </div>
+            </div>
+          )}
+
+          {/* Fork Table 对话框 */}
+          {showForkDialog && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog" style={{ minWidth: 360 }}>
+                <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <GitBranch size={16} /> Fork Table
+                </h4>
+                <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", margin: "4px 0 12px" }}>
+                  Creates a zero-copy clone using Copy-on-Write. Completes in milliseconds regardless of data size.
+                </p>
+                <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                  Source Table
+                </label>
+                <input
+                  type="text"
+                  className="collection-dialog-input"
+                  value={forkSourceTable}
+                  disabled
+                  style={{ marginBottom: 8, opacity: 0.7 }}
+                />
+                <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                  Target Table Name
+                </label>
+                <input
+                  type="text"
+                  className="collection-dialog-input"
+                  placeholder="Enter target table name..."
+                  value={forkTargetTable}
+                  onChange={(e) => setForkTargetTable(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConfirmFork();
+                    if (e.key === "Escape") handleCancelFork();
+                  }}
+                  autoFocus
+                  disabled={forkLoading}
+                />
+                <div className="collection-dialog-actions">
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleConfirmFork}
+                    disabled={forkLoading}
+                  >
+                    {forkLoading ? (
+                      <RefreshCw size={12} className="spin" />
+                    ) : (
+                      <GitBranch size={12} />
+                    )}
+                    Fork
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleCancelFork}
+                    disabled={forkLoading}
+                  >
+                    <X size={12} /> Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schema Diff 对话框 */}
+          {showSchemaDiff && schemaDiffData && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog" style={{ minWidth: 520, maxWidth: 640, maxHeight: "80vh", overflow: "auto" }}>
+                <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Diff size={16} /> Schema Diff
+                </h4>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, fontSize: 12 }}>
+                  <div>
+                    <strong>{schemaDiffData.tableA}</strong>
+                    <span style={{ color: "var(--vscode-descriptionForeground)", marginLeft: 6 }}>
+                      {schemaDiffData.rowCountA} rows
+                    </span>
+                  </div>
+                  <span style={{ color: "var(--vscode-descriptionForeground)" }}>vs</span>
+                  <div>
+                    <strong>{schemaDiffData.tableB}</strong>
+                    <span style={{ color: "var(--vscode-descriptionForeground)", marginLeft: 6 }}>
+                      {schemaDiffData.rowCountB} rows
+                    </span>
+                  </div>
+                </div>
+                <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <th style={{ textAlign: "left", padding: "4px 8px" }}>Status</th>
+                      <th style={{ textAlign: "left", padding: "4px 8px" }}>Column</th>
+                      <th style={{ textAlign: "left", padding: "4px 8px" }}>{schemaDiffData.tableA}</th>
+                      <th style={{ textAlign: "left", padding: "4px 8px" }}>{schemaDiffData.tableB}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schemaDiffData.diff.map((d) => (
+                      <tr
+                        key={d.field}
+                        style={{
+                          borderBottom: "1px solid var(--border-color)",
+                          background:
+                            d.status === "added"
+                              ? "rgba(0,180,0,0.08)"
+                              : d.status === "removed"
+                                ? "rgba(255,0,0,0.08)"
+                                : d.status === "modified"
+                                  ? "rgba(255,180,0,0.08)"
+                                  : "transparent",
+                        }}
+                      >
+                        <td style={{ padding: "4px 8px" }}>
+                          {d.status === "unchanged" && "✅"}
+                          {d.status === "modified" && "⚠️"}
+                          {d.status === "added" && "➕"}
+                          {d.status === "removed" && "➖"}
+                        </td>
+                        <td style={{ padding: "4px 8px", fontWeight: 500 }}>{d.field}</td>
+                        <td style={{ padding: "4px 8px", fontFamily: "monospace" }}>
+                          {d.tableA ? `${d.tableA.type} ${d.tableA.null === "YES" ? "NULL" : "NOT NULL"}` : "—"}
+                        </td>
+                        <td style={{ padding: "4px 8px", fontFamily: "monospace" }}>
+                          {d.tableB ? `${d.tableB.type} ${d.tableB.null === "YES" ? "NULL" : "NOT NULL"}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8, fontSize: 11, color: "var(--vscode-descriptionForeground)" }}>
+                  {schemaDiffData.diff.filter((d) => d.status !== "unchanged").length === 0
+                    ? "No schema differences found."
+                    : `${schemaDiffData.diff.filter((d) => d.status !== "unchanged").length} difference(s) found.`}
+                  {" "}Row count diff: {schemaDiffData.rowCountA} vs {schemaDiffData.rowCountB}
+                  {schemaDiffData.rowCountA !== schemaDiffData.rowCountB &&
+                    ` (${schemaDiffData.rowCountB - schemaDiffData.rowCountA > 0 ? "+" : ""}${schemaDiffData.rowCountB - schemaDiffData.rowCountA})`}
+                </div>
+                <div className="collection-dialog-actions" style={{ marginTop: 12 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setShowSchemaDiff(false); setSchemaDiffData(null); }}
+                  >
+                    <X size={12} /> Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fork 血缘图 */}
+          {showForkLineage && forkLineageData && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog" style={{ minWidth: 400 }}>
+                <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Network size={16} /> Fork Lineage
+                </h4>
+                <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", margin: "4px 0 8px" }}>
+                  Related tables for <strong>{forkLineageData.baseName}</strong>
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {forkLineageData.relatedTables.map((t) => {
+                    const isBase = t === forkLineageData.baseName;
+                    const isFork = t.includes("_fork_") || t.includes("_safe_") || t.includes("_variant_");
+                    const isBackup = t.includes("_backup_");
+                    return (
+                      <div
+                        key={t}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 10px",
+                          borderRadius: 4,
+                          background: isBase
+                            ? "rgba(0,120,255,0.1)"
+                            : isFork
+                              ? "rgba(255,180,0,0.1)"
+                              : isBackup
+                                ? "rgba(128,128,128,0.1)"
+                                : "transparent",
+                          border: "1px solid var(--border-color)",
+                          fontSize: 12,
+                        }}
+                      >
+                        {isBase ? (
+                          <Database size={14} />
+                        ) : isFork ? (
+                          <GitFork size={14} style={{ color: "var(--vscode-charts-yellow)" }} />
+                        ) : (
+                          <Grid size={14} style={{ opacity: 0.5 }} />
+                        )}
+                        <span style={{ flex: 1, fontFamily: "monospace" }}>{t}</span>
+                        {isBase && (
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(0,120,255,0.2)" }}>
+                            source
+                          </span>
+                        )}
+                        {isFork && (
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(255,180,0,0.2)" }}>
+                            fork
+                          </span>
+                        )}
+                        {isBackup && (
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: "rgba(128,128,128,0.2)" }}>
+                            backup
+                          </span>
+                        )}
+                        {!isBase && (
+                          <button
+                            className="collection-action-btn"
+                            onClick={() => {
+                              setSchemaDiffTableA(forkLineageData.baseName);
+                              setSchemaDiffTableB(t);
+                              handleShowSchemaDiff(forkLineageData.baseName, t);
+                              setShowForkLineage(false);
+                            }}
+                            title="Compare with source"
+                            style={{ padding: 2 }}
+                          >
+                            <Diff size={12} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {forkLineageData.relatedTables.length === 0 && (
+                    <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", fontStyle: "italic" }}>
+                      No related forks found.
+                    </p>
+                  )}
+                </div>
+                <div className="collection-dialog-actions" style={{ marginTop: 12 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setShowForkLineage(false); setForkLineageData(null); }}
+                  >
+                    <X size={12} /> Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* A/B 测试对话框 */}
+          {showABTestDialog && (
+            <div className="collection-dialog-overlay">
+              <div className="collection-dialog" style={{ minWidth: 520, maxWidth: 640, maxHeight: "80vh", overflow: "auto" }}>
+                <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <FlaskConical size={16} /> A/B Test Manager
+                </h4>
+                <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", margin: "4px 0 12px" }}>
+                  Source: <strong>{abTestSource}</strong>
+                </p>
+
+                {abTestVariants.length === 0 ? (
+                  <>
+                    <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                      Number of variants
+                    </label>
+                    <input
+                      type="number"
+                      className="collection-dialog-input"
+                      min={2}
+                      max={10}
+                      value={abTestVariantCount}
+                      onChange={(e) => setAbTestVariantCount(Math.max(2, Math.min(10, parseInt(e.target.value) || 2)))}
+                      disabled={abTestLoading}
+                      style={{ marginBottom: 8 }}
+                    />
+                    <div className="collection-dialog-actions">
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleCreateABTest}
+                        disabled={abTestLoading}
+                      >
+                        {abTestLoading ? <RefreshCw size={12} className="spin" /> : <FlaskConical size={12} />}
+                        Create Variants
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowABTestDialog(false)}
+                        disabled={abTestLoading}
+                      >
+                        <X size={12} /> Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                        Variants ({abTestVariants.length})
+                      </label>
+                      {abTestVariants.map((v) => (
+                        <div
+                          key={v.name}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            borderBottom: "1px solid var(--border-color)",
+                          }}
+                        >
+                          <GitFork size={12} style={{ color: "var(--vscode-charts-yellow)" }} />
+                          <span style={{ flex: 1, fontFamily: "monospace" }}>{v.name}</span>
+                          <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)" }}>
+                            forked in {v.elapsed}ms
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                      Benchmark Query (use <code>{"{table}"}</code> as table placeholder)
+                    </label>
+                    <textarea
+                      className="collection-dialog-input"
+                      value={abTestQuery}
+                      onChange={(e) => setAbTestQuery(e.target.value)}
+                      rows={3}
+                      style={{ fontFamily: "monospace", fontSize: 11, resize: "vertical" }}
+                      disabled={abTestRunning}
+                    />
+
+                    <div className="collection-dialog-actions" style={{ marginTop: 8 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleRunABTestQuery}
+                        disabled={abTestRunning}
+                      >
+                        {abTestRunning ? <RefreshCw size={12} className="spin" /> : <Play size={12} />}
+                        Run Benchmark
+                      </button>
+                    </div>
+
+                    {abTestResults.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
+                          Results
+                        </label>
+                        {(() => {
+                          const maxElapsed = Math.max(...abTestResults.map((r) => r.elapsed), 1);
+                          return abTestResults.map((r) => (
+                            <div
+                              key={r.variant}
+                              style={{
+                                padding: "6px 8px",
+                                fontSize: 12,
+                                borderBottom: "1px solid var(--border-color)",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontFamily: "monospace", flex: 1 }}>{r.variant}</span>
+                                <span style={{ fontWeight: 600 }}>{r.elapsed}ms</span>
+                                <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)" }}>
+                                  {r.rowCount} rows
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  background: "var(--border-color)",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    height: "100%",
+                                    width: `${(r.elapsed / maxElapsed) * 100}%`,
+                                    borderRadius: 3,
+                                    background: r.error
+                                      ? "var(--vscode-errorForeground)"
+                                      : r.elapsed === Math.min(...abTestResults.map((x) => x.elapsed))
+                                        ? "var(--vscode-charts-green)"
+                                        : "var(--vscode-charts-blue)",
+                                    transition: "width 0.3s ease",
+                                  }}
+                                />
+                              </div>
+                              {r.error && (
+                                <div style={{ fontSize: 10, color: "var(--vscode-errorForeground)", marginTop: 2 }}>
+                                  {r.error}
+                                </div>
+                              )}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
+                    <div className="collection-dialog-actions" style={{ marginTop: 12 }}>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={handleCleanupABTest}
+                      >
+                        <Trash2 size={12} /> Cleanup All Variants
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowABTestDialog(false)}
+                      >
+                        <X size={12} /> Close
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Left sidebar resize handle */}
@@ -1973,6 +2869,54 @@ for i, doc in enumerate(results['documents'][0]):
 
         {/* Right main area */}
         <div className="main-content">
+          {/* Safe Change Mode Banner */}
+          {safeChangeMode && safeChangeFork && (
+            <div
+              className="safe-change-banner"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                background: "rgba(255,180,0,0.12)",
+                borderBottom: "2px solid var(--vscode-charts-yellow)",
+                fontSize: 12,
+              }}
+            >
+              <Shield size={14} style={{ color: "var(--vscode-charts-yellow)", flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>
+                <strong>Safe Change Mode:</strong> Editing fork <code style={{ fontSize: 11 }}>{safeChangeFork}</code> of{" "}
+                <code style={{ fontSize: 11 }}>{safeChangeSource}</code>. Changes won't affect the original table.
+              </span>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setSchemaDiffTableA(safeChangeSource);
+                  setSchemaDiffTableB(safeChangeFork);
+                  handleShowSchemaDiff(safeChangeSource, safeChangeFork);
+                }}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+                disabled={schemaDiffLoading}
+              >
+                {schemaDiffLoading ? <RefreshCw size={12} className="spin" /> : <Diff size={12} />} Compare
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handlePromoteFork}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+              >
+                <ArrowUp size={12} /> Apply to Source
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={handleDiscardFork}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+              >
+                <Trash2 size={12} /> Discard
+              </button>
+            </div>
+          )}
+
           {/* Query editor */}
           <div className="query-editor">
             <textarea
@@ -2312,6 +3256,8 @@ for i, doc in enumerate(results['documents'][0]):
                 >
                   <option value="nodejs-seekdb">NodeJs - seekdb</option>
                   <option value="python-pyseekdb">Python - pyseekdb</option>
+                  <option value="nodejs-fork">NodeJs - Fork Table</option>
+                  <option value="python-fork">Python - Fork Table</option>
                 </select>
                 <div className="code-snippet-actions">
                   <button

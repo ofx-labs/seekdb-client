@@ -1442,3 +1442,56 @@ body {
 .collection-browser-page.resizing * {
   cursor: col-resize !important;
 }
+
+/* Collection action dropdown menu */
+.collection-action-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: background 0.1s ease;
+}
+
+.collection-action-dropdown .dropdown-item:hover {
+  background: var(--hover-bg);
+}
+
+.collection-action-dropdown .dropdown-item svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Safe Change Banner */
+.safe-change-banner code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: var(--vscode-editor-font-family), monospace;
+}
+
+/* Fork/A/B Test dialog enhancements */
+.collection-dialog textarea.collection-dialog-input {
+  resize: vertical;
+  min-height: 60px;
+  font-family: var(--vscode-editor-font-family), monospace;
+}
+
+.collection-dialog table {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.collection-dialog table th {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.collection-dialog table td,
+.collection-dialog table th {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
