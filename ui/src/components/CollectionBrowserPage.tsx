@@ -303,6 +303,9 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [abTestQuery, setAbTestQuery] = useState("SELECT COUNT(*) FROM `{table}`");
   const [abTestResults, setAbTestResults] = useState<ABTestQueryResultEntry[]>([]);
   const [abTestRunning, setAbTestRunning] = useState(false);
+  const [abTestVariantSQLs, setAbTestVariantSQLs] = useState<Record<string, string>>({});
+  const [abTestApplyingSQL, setAbTestApplyingSQL] = useState<string | null>(null);
+  const [abTestStep, setAbTestStep] = useState<"create" | "configure" | "benchmark">("create");
 
   // 侧边栏宽度拖动相关状态
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
@@ -542,8 +545,18 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             console.log("[CollectionBrowser] A/B test created:", message.data);
             setAbTestLoading(false);
             setAbTestVariants(message.data?.variants || []);
+            setAbTestStep("configure");
+            {
+              const initSQLs: Record<string, string> = {};
+              (message.data?.variants || []).forEach((v: ABTestVariant, idx: number) => {
+                initSQLs[v.name] = idx === 0
+                  ? "-- Variant A: e.g. ALTER TABLE `{table}` ADD INDEX idx_col1 (col1);"
+                  : "-- Variant B: e.g. ALTER TABLE `{table}` ADD INDEX idx_col1_col2 (col1, col2);";
+              });
+              setAbTestVariantSQLs(initSQLs);
+            }
             setSuccessMessage(
-              `A/B test: ${message.data?.variants?.length} variants created from "${message.data?.sourceTable}"`,
+              `A/B test: ${message.data?.variants?.length} variants created. Now configure each variant.`,
             );
             setTimeout(() => setSuccessMessage(null), 5000);
             vscode.postMessage({ type: "refreshCollections" });
@@ -1281,6 +1294,9 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
     setAbTestVariants([]);
     setAbTestResults([]);
     setAbTestQuery(`SELECT COUNT(*) FROM \`{table}\``);
+    setAbTestStep("create");
+    setAbTestVariantSQLs({});
+    setAbTestApplyingSQL(null);
     setShowABTestDialog(true);
   };
 
@@ -1292,6 +1308,23 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
       type: "abTestCreate",
       data: { sourceTable: abTestSource, variantCount: abTestVariantCount },
     });
+  };
+
+  const handleApplyVariantSQL = (variantName: string) => {
+    const sql = abTestVariantSQLs[variantName]?.trim();
+    if (!sql) return;
+    setAbTestApplyingSQL(variantName);
+    setError(null);
+    const actualSql = sql.replace(/\{table\}/g, variantName);
+    vscode.postMessage({
+      type: "executeQuery",
+      data: { sql: actualSql },
+    });
+    setTimeout(() => {
+      setAbTestApplyingSQL(null);
+      setSuccessMessage(`SQL applied to ${variantName}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    }, 1000);
   };
 
   const handleRunABTestQuery = () => {
@@ -2691,16 +2724,47 @@ fork_table_workflow()`;
           {/* A/B 测试对话框 */}
           {showABTestDialog && (
             <div className="collection-dialog-overlay">
-              <div className="collection-dialog" style={{ minWidth: 520, maxWidth: 640, maxHeight: "80vh", overflow: "auto" }}>
+              <div className="collection-dialog" style={{ minWidth: 560, maxWidth: 680, maxHeight: "85vh", overflow: "auto" }}>
                 <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <FlaskConical size={16} /> A/B Test Manager
                 </h4>
-                <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", margin: "4px 0 12px" }}>
+                <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", margin: "4px 0 8px" }}>
                   Source: <strong>{abTestSource}</strong>
                 </p>
 
-                {abTestVariants.length === 0 ? (
+                {/* Step indicator */}
+                <div style={{ display: "flex", gap: 0, marginBottom: 16, fontSize: 11, borderBottom: "1px solid var(--border-color)" }}>
+                  {[
+                    { key: "create" as const, label: "1. Create Variants", icon: <FlaskConical size={12} /> },
+                    { key: "configure" as const, label: "2. Configure", icon: <Shield size={12} /> },
+                    { key: "benchmark" as const, label: "3. Benchmark", icon: <Play size={12} /> },
+                  ].map((s) => (
+                    <div
+                      key={s.key}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4,
+                        padding: "6px 12px",
+                        fontWeight: abTestStep === s.key ? 600 : 400,
+                        color: abTestStep === s.key ? "var(--vscode-foreground)" : "var(--vscode-descriptionForeground)",
+                        borderBottom: abTestStep === s.key ? "2px solid var(--vscode-focusBorder)" : "2px solid transparent",
+                        cursor: s.key === "create" ? "default" : abTestVariants.length > 0 ? "pointer" : "default",
+                        opacity: s.key !== "create" && abTestVariants.length === 0 ? 0.4 : 1,
+                      }}
+                      onClick={() => {
+                        if (s.key !== "create" && abTestVariants.length > 0) setAbTestStep(s.key);
+                      }}
+                    >
+                      {s.icon} {s.label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Step 1: Create */}
+                {abTestStep === "create" && (
                   <>
+                    <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", marginBottom: 8 }}>
+                      Fork the source table into multiple variants for independent testing.
+                    </p>
                     <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
                       Number of variants
                     </label>
@@ -2732,31 +2796,123 @@ fork_table_workflow()`;
                       </button>
                     </div>
                   </>
-                ) : (
+                )}
+
+                {/* Step 2: Configure — apply different SQL to each variant */}
+                {abTestStep === "configure" && (
+                  <>
+                    <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", marginBottom: 8 }}>
+                      Apply different modifications to each variant to create the differences you want to test.
+                      Use <code style={{ background: "var(--vscode-textCodeBlock-background)", padding: "1px 4px", borderRadius: 3 }}>{"{table}"}</code> as a placeholder for the variant table name.
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {abTestVariants.map((v, idx) => (
+                        <div
+                          key={v.name}
+                          style={{
+                            border: "1px solid var(--border-color)",
+                            borderRadius: 6,
+                            padding: 10,
+                            background: "var(--vscode-editor-background)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <GitFork size={12} style={{ color: "var(--vscode-charts-yellow)" }} />
+                            <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 600 }}>
+                              Variant {String.fromCharCode(65 + idx)}
+                            </span>
+                            <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)", fontFamily: "monospace" }}>
+                              {v.name}
+                            </span>
+                            <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)", marginLeft: "auto" }}>
+                              forked in {v.elapsed}ms
+                            </span>
+                          </div>
+                          <label style={{ fontSize: 11, color: "var(--vscode-descriptionForeground)", display: "block", marginBottom: 4 }}>
+                            Modification SQL (e.g., ADD INDEX, ALTER COLUMN, INSERT/UPDATE data):
+                          </label>
+                          <textarea
+                            className="collection-dialog-input"
+                            value={abTestVariantSQLs[v.name] || ""}
+                            onChange={(e) =>
+                              setAbTestVariantSQLs((prev) => ({ ...prev, [v.name]: e.target.value }))
+                            }
+                            rows={3}
+                            style={{ fontFamily: "monospace", fontSize: 11, resize: "vertical", marginBottom: 6 }}
+                            placeholder={`-- e.g., ALTER TABLE \`{table}\` ADD INDEX idx_example (column_name);`}
+                            disabled={abTestApplyingSQL === v.name}
+                          />
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleApplyVariantSQL(v.name)}
+                            disabled={
+                              abTestApplyingSQL === v.name ||
+                              !(abTestVariantSQLs[v.name]?.trim())
+                            }
+                            style={{ fontSize: 11 }}
+                          >
+                            {abTestApplyingSQL === v.name ? (
+                              <><RefreshCw size={11} className="spin" /> Applying...</>
+                            ) : (
+                              <><Play size={11} /> Apply SQL</>
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="collection-dialog-actions" style={{ marginTop: 12 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setAbTestStep("benchmark")}
+                      >
+                        Next: Benchmark →
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setAbTestStep("create")}
+                      >
+                        ← Back
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* Step 3: Benchmark */}
+                {abTestStep === "benchmark" && (
                   <>
                     <div style={{ marginBottom: 12 }}>
                       <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
                         Variants ({abTestVariants.length})
                       </label>
-                      {abTestVariants.map((v) => (
-                        <div
-                          key={v.name}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "4px 8px",
-                            fontSize: 12,
-                            borderBottom: "1px solid var(--border-color)",
-                          }}
-                        >
-                          <GitFork size={12} style={{ color: "var(--vscode-charts-yellow)" }} />
-                          <span style={{ flex: 1, fontFamily: "monospace" }}>{v.name}</span>
-                          <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)" }}>
-                            forked in {v.elapsed}ms
-                          </span>
-                        </div>
-                      ))}
+                      {abTestVariants.map((v, idx) => {
+                        const appliedSQL = abTestVariantSQLs[v.name]?.trim();
+                        return (
+                          <div
+                            key={v.name}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "4px 8px",
+                              fontSize: 12,
+                              borderBottom: "1px solid var(--border-color)",
+                            }}
+                          >
+                            <GitFork size={12} style={{ color: "var(--vscode-charts-yellow)" }} />
+                            <span style={{ fontWeight: 600, minWidth: 20 }}>{String.fromCharCode(65 + idx)}</span>
+                            <span style={{ flex: 1, fontFamily: "monospace" }}>{v.name}</span>
+                            <span style={{
+                              fontSize: 10,
+                              color: appliedSQL
+                                ? "var(--vscode-charts-green)"
+                                : "var(--vscode-descriptionForeground)",
+                              fontStyle: appliedSQL ? "normal" : "italic",
+                            }}>
+                              {appliedSQL ? "modified" : "unmodified"}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     <label style={{ fontSize: 12, marginBottom: 4, display: "block", color: "var(--vscode-descriptionForeground)" }}>
@@ -2789,7 +2945,8 @@ fork_table_workflow()`;
                         </label>
                         {(() => {
                           const maxElapsed = Math.max(...abTestResults.map((r) => r.elapsed), 1);
-                          return abTestResults.map((r) => (
+                          const minElapsed = Math.min(...abTestResults.filter((r) => !r.error).map((r) => r.elapsed));
+                          return abTestResults.map((r, idx) => (
                             <div
                               key={r.variant}
                               style={{
@@ -2799,11 +2956,22 @@ fork_table_workflow()`;
                               }}
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontWeight: 600, minWidth: 20 }}>{String.fromCharCode(65 + idx)}</span>
                                 <span style={{ fontFamily: "monospace", flex: 1 }}>{r.variant}</span>
                                 <span style={{ fontWeight: 600 }}>{r.elapsed}ms</span>
                                 <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground)" }}>
                                   {r.rowCount} rows
                                 </span>
+                                {!r.error && r.elapsed === minElapsed && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 600,
+                                    color: "var(--vscode-charts-green)",
+                                    border: "1px solid var(--vscode-charts-green)",
+                                    borderRadius: 3, padding: "1px 4px",
+                                  }}>
+                                    FASTEST
+                                  </span>
+                                )}
                               </div>
                               <div
                                 style={{
@@ -2820,7 +2988,7 @@ fork_table_workflow()`;
                                     borderRadius: 3,
                                     background: r.error
                                       ? "var(--vscode-errorForeground)"
-                                      : r.elapsed === Math.min(...abTestResults.map((x) => x.elapsed))
+                                      : r.elapsed === minElapsed
                                         ? "var(--vscode-charts-green)"
                                         : "var(--vscode-charts-blue)",
                                     transition: "width 0.3s ease",
@@ -2839,6 +3007,12 @@ fork_table_workflow()`;
                     )}
 
                     <div className="collection-dialog-actions" style={{ marginTop: 12 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setAbTestStep("configure")}
+                      >
+                        ← Back to Configure
+                      </button>
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={handleCleanupABTest}
