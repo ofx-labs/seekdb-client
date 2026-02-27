@@ -272,6 +272,8 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const [safeChangeMode, setSafeChangeMode] = useState(false);
   const [safeChangeSource, setSafeChangeSource] = useState("");
   const [safeChangeFork, setSafeChangeFork] = useState("");
+  const safeChangeModeRef = useRef(false);
+  const safeChangeSourceRef = useRef("");
 
   // Schema Diff 状态
   const [showSchemaDiff, setShowSchemaDiff] = useState(false);
@@ -319,6 +321,14 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
   const LEFT_SIDEBAR_MAX_WIDTH = 500;
   const RIGHT_PANEL_MIN_WIDTH = 300;
   const RIGHT_PANEL_MAX_WIDTH = 600;
+
+  // Keep refs in sync with state to avoid stale closures in message handlers
+  useEffect(() => {
+    safeChangeModeRef.current = safeChangeMode;
+  }, [safeChangeMode]);
+  useEffect(() => {
+    safeChangeSourceRef.current = safeChangeSource;
+  }, [safeChangeSource]);
 
   // Listen for messages from extension
   useEffect(() => {
@@ -506,27 +516,47 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
               `Fork created in ${message.data?.elapsed}ms: ${message.data?.sourceTable} → ${message.data?.targetTable}`,
             );
             setTimeout(() => setSuccessMessage(null), 5000);
-            if (safeChangeMode) {
-              setSafeChangeFork(message.data?.targetTable || "");
+            if (safeChangeModeRef.current) {
+              const forkTarget = message.data?.targetTable || "";
+              setSafeChangeFork(forkTarget);
+              if (forkTarget) {
+                setSelectedCollection(forkTarget);
+                setQuery(`-- Safe Change Mode: editing fork of "${safeChangeSourceRef.current}"\n-- Your changes here won't affect the original table.\n-- When done, use the banner buttons: Compare → Apply or Discard\n\nSELECT * FROM \`${forkTarget}\` LIMIT 10;`);
+              }
             }
             vscode.postMessage({ type: "refreshCollections" });
             break;
           case "forkPromoted":
             console.log("[CollectionBrowser] Fork promoted:", message.data);
-            setSafeChangeMode(false);
-            setSafeChangeSource("");
-            setSafeChangeFork("");
+            {
+              const sourceToRestore = safeChangeSourceRef.current;
+              setSafeChangeMode(false);
+              setSafeChangeSource("");
+              setSafeChangeFork("");
+              if (sourceToRestore) {
+                setSelectedCollection(sourceToRestore);
+              }
+              setQuery("");
+            }
             setSuccessMessage(
-              `Fork promoted! Old table backed up as "${message.data?.backupName}"`,
+              `Fork promoted successfully! Old table backed up as "${message.data?.backupName}"`,
             );
             setTimeout(() => setSuccessMessage(null), 5000);
             vscode.postMessage({ type: "refreshCollections" });
             break;
           case "forkDiscarded":
             console.log("[CollectionBrowser] Fork discarded:", message.data);
-            setSafeChangeMode(false);
-            setSafeChangeFork("");
-            setSuccessMessage(`Fork "${message.data?.forkTable}" discarded`);
+            {
+              const sourceToRestore = safeChangeSourceRef.current;
+              setSafeChangeMode(false);
+              setSafeChangeSource("");
+              setSafeChangeFork("");
+              if (sourceToRestore) {
+                setSelectedCollection(sourceToRestore);
+              }
+              setQuery("");
+            }
+            setSuccessMessage(`Fork "${message.data?.forkTable}" discarded. Original table unchanged.`);
             setTimeout(() => setSuccessMessage(null), 3000);
             vscode.postMessage({ type: "refreshCollections" });
             break;
@@ -581,6 +611,10 @@ const CollectionBrowserPage: React.FC<CollectionBrowserPageProps> = ({
             setSchemaDiffLoading(false);
             setAbTestLoading(false);
             setAbTestRunning(false);
+            if (safeChangeModeRef.current && !safeChangeFork) {
+              setSafeChangeMode(false);
+              setSafeChangeSource("");
+            }
             setError(message.data?.error || "Fork operation failed");
             break;
 
